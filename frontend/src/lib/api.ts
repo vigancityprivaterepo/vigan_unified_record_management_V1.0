@@ -535,6 +535,14 @@ export type GapRuleSummary = GapRuleInput & {
 };
 export type GapPerson = { personKey: string; name: string; age: number | null; sex: string | null; barangay: string | null; sourcePrograms: string[] };
 
+// Disaster lists (admin): see backend/src/services/disasterLists.ts.
+export type DisasterCategory = 'senior' | 'young_child' | 'pwd' | 'pregnant' | 'solo_parent';
+export type DisasterBarangay = { code: string | null; name: string | null; people: number; households: number; evacuatedNow: number } & Record<DisasterCategory, number>;
+export type VulnerablePerson = {
+  personKey: string; name: string; age: number | null; sex: string | null; street: string | null; barangay: string | null;
+  householdKey: string; householdHead: string | null; needs: DisasterCategory[]; pregnancyNeedsCheck: boolean; evacuationCenter: string | null;
+};
+
 export const api = {
   login: (username: string, password: string) =>
     request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -589,6 +597,13 @@ export const api = {
   exportModuleRecords: (officeId: string, moduleId: string) =>
     download(`/offices/${officeId}/modules/${moduleId}/records/export.csv`, 'records.csv'),
   exportMasterlist: () => download('/admin/citizens/export.csv', 'citizen-masterlist.csv'),
+  disasterSummary: () => request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean }>('/admin/disaster-lists'),
+  disasterPeople: (page: number, barangayCode?: string, category?: DisasterCategory) =>
+    request<Paginated<VulnerablePerson>>(`/admin/disaster-lists/people${queryString({ page, barangayCode, category })}`),
+  disasterPrint: (barangayCode: string) =>
+    request<{ total: number; items: VulnerablePerson[]; truncated: boolean }>(`/admin/disaster-lists/print${queryString({ barangayCode })}`),
+  exportDisasterList: (barangayCode?: string, category?: DisasterCategory) =>
+    download(`/admin/disaster-lists/people.csv${queryString({ barangayCode, category })}`, 'disaster-list.csv'),
   programGaps: (barangayCode?: string) =>
     request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`/admin/program-gaps${queryString({ barangayCode })}`),
   programGapPeople: (ruleId: string, page: number, barangayCode?: string) =>

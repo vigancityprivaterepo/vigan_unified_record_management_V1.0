@@ -11,6 +11,7 @@ export type AdminTab =
   | 'citizens'
   | 'households'
   | 'gaps'
+  | 'disaster'
   | 'queue'
   | 'workspaces'
   | 'offices:list'
@@ -28,6 +29,7 @@ const MAIN: Array<{ key: AdminTab; label: string; icon: string }> = [
   { key: 'citizens', label: 'Citizens', icon: 'users' },
   { key: 'households', label: 'Households', icon: 'home' },
   { key: 'gaps', label: 'Program gaps', icon: 'target' },
+  { key: 'disaster', label: 'Disaster lists', icon: 'alert' },
   { key: 'queue', label: 'Duplicate review', icon: 'queue' },
 ];
 const MANAGE: Array<{ key: AdminTab; label: string; icon: string }> = [

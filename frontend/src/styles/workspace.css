@@ -485,4 +485,29 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .ws-gap-count strong { font-family: var(--font-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .ws-gap-count span { font-size: 13px; color: var(--t-muted); }
 .ws-gap-programs { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; max-height: 220px; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
-.ws-note { margin: 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--bg-muted); color: var(--t-base); font-size: 14px; }
+.ws-note { margin: 0; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-card); color: var(--t-base); font-size: 14px; }
+
+/* ---------- Disaster lists ---------- */
+.dl-needs { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; font-size: 15px; color: var(--t-muted); }
+.dl-needs strong { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--t-base); font-variant-numeric: tabular-nums; }
+.table tr.dl-hh-start td { border-top: 2px solid var(--border); }
+@media (max-width: 900px) { .ws-kpis > .ws-kpi[style*="span 2"] { grid-column: auto !important; } }
+
+/* Printed sheet: hidden on screen; in print, only the sheet shows. Plain
+   black on white, 11pt, a blank "Reached" box per person for field teams. */
+.dl-print { display: none; }
+@media print {
+  body > *:not(.dl-print) { display: none !important; }
+  html, body { background: #fff !important; }
+  .dl-print { display: block; color: #000; font: 11pt/1.35 var(--font-body); }
+  .dl-print-head { margin-bottom: 10pt; }
+  .dl-print-head h1 { margin: 2pt 0; font: 600 16pt var(--font-display); }
+  .dl-print-warn { margin-top: 4pt; font-weight: 600; }
+  .dl-print table { width: 100%; border-collapse: collapse; }
+  .dl-print th, .dl-print td { border: 0.75pt solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  .dl-print th { font-weight: 600; background: #eee; }
+  .dl-print tbody { break-inside: avoid; }
+  .dl-print-hh td { font-weight: 600; background: #f4f4f4; }
+  .dl-print-box { width: 48pt; }
+  @page { margin: 12mm; }
+}
