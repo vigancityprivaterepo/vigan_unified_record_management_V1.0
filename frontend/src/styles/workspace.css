@@ -521,3 +521,15 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .br-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .br-kpi-btn { text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .br-kpi-btn:hover { border-color: var(--t-light); }
+
+/* ---------- Bulk import ---------- */
+.imp-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--t-muted); }
+.imp-steps li { display: inline-flex; align-items: center; gap: 5px; }
+.imp-steps li.is-on { color: var(--t-base); font-weight: 600; }
+.imp-steps li.is-done { color: var(--t-base); }
+.imp-drop { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 96px; border: 1.5px dashed var(--border); border-radius: var(--r-md); background: var(--bg-muted); color: var(--t-base); cursor: pointer; }
+.imp-drop:hover, .imp-drop:focus-within { border-color: var(--t-light); }
+.imp-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.imp-summary { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+.imp-summary strong { display: inline-block; min-width: 56px; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+.imp-summary .is-bad { color: var(--danger); }

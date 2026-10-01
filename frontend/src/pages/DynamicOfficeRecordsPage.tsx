@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { ImportRecordsDialog } from '@/components/ImportRecordsDialog';
 import { Icon } from '@/components/Icon';
 import { OfficeModuleRecordsPanel } from '@/components/OfficeModuleRecordsPanel';
 import { api, ApiError, type OfficeModule, type OfficeRecordList } from '@/lib/api';
@@ -35,6 +36,10 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
     }
   }
 
+  // Bulk import from a spreadsheet; the records list reloads after it.
+  const [importing, setImporting] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {readOnly && (
@@ -50,6 +55,12 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
           <Icon name="download" size={16} />
           {exporting ? 'Exporting...' : `Export ${officeModule.name} list`}
         </button>
+        {!readOnly && (
+          <button className="btn btn--ghost btn--lg" onClick={() => setImporting(true)}>
+            <Icon name="list" size={16} />
+            Import
+          </button>
+        )}
         {!readOnly && onNew && (
           <button className="btn btn--primary btn--lg" onClick={onNew}><Icon name="plus" size={16} strokeWidth={2.4} />New registration</button>
         )}
@@ -61,6 +72,7 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
       )}
       <div className="ws-card" style={{ padding: 4 }}>
         <OfficeModuleRecordsPanel
+          key={reloadKey}
           officeId={officeId}
           officeModule={officeModule}
           readOnly={readOnly}
@@ -68,6 +80,9 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
           onLoaded={handleLoaded}
         />
       </div>
+      {importing && (
+        <ImportRecordsDialog officeId={officeId} module={officeModule} onClose={() => setImporting(false)} onImported={() => setReloadKey((n) => n + 1)} />
+      )}
     </div>
   );
 }

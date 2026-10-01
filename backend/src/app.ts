@@ -20,6 +20,7 @@ import { adminUsersRouter } from './routes/adminUsers';
 import { createAuthRouter, type LoginRateLimitOptions } from './routes/auth';
 import { barangaysRouter } from './routes/barangays';
 import { officeRouter } from './routes/office';
+import { officeImportRouter } from './routes/officeImport';
 import { officeListsRouter } from './routes/officeLists';
 
 // Factory rather than a module-level app instance so tests can build an app
@@ -36,7 +37,8 @@ export function createApp(options?: {
   // exposedHeaders: lets the browser read the export file name across the
   // frontend/backend origins (otherwise every CSV saves under a fallback name).
   app.use(cors({ origin: env.corsOrigin, credentials: true, exposedHeaders: ['Content-Disposition'] }));
-  app.use(express.json());
+  // 2mb: a bulk import chunk (up to 500 spreadsheet rows) exceeds the 100kb default.
+  app.use(express.json({ limit: '2mb' }));
   app.use(createSessionMiddleware(options?.sessionIdleTimeoutMs));
 
   app.get('/health', (_req, res) => {
@@ -47,6 +49,7 @@ export function createApp(options?: {
   app.use('/barangays', barangaysRouter);
   app.use('/offices', officeWidgetsRouter);
   app.use('/offices', officeListsRouter);
+  app.use('/offices', officeImportRouter);
   app.use('/offices', officeRouter);
   app.use('/admin/duplicate-review-queue', adminReviewRouter);
   app.use('/admin/staff-accounts', adminUsersRouter);

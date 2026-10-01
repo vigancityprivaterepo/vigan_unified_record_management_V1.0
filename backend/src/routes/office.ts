@@ -13,11 +13,8 @@ import { parsePage } from '../lib/pagination';
 import { makeDocumentObjectKey } from '../lib/sanitizeFilename';
 import { uppercaseFreeText, uppercaseStrings } from '../lib/textNormalize';
 import { requireOfficeAccess } from '../middleware/auth';
-import { addHouseholdMember, designateHouseholdHead } from '../services/households';
 import { allModuleRecords, listModuleRecords, parseStatus, type RecordStatus } from '../services/officeRecordList';
-import { createOfficeRecord } from '../services/officeSatelliteWriters';
-import { assertNoReliefClaim, ReliefAlreadyClaimedError } from '../services/reliefClaims';
-import { resolvePerson } from '../services/resolvePerson';
+import { parseIntake, submitIntake } from '../services/intakeSubmission';
 
 // The staff-facing side of every office -- CSWD/Agriculture/Civil Registry
 // included as of the offices-as-modules unification, not just
@@ -136,38 +133,6 @@ officeRouter.get('/:officeId/modules/:moduleId/fields', requireOfficeAccess, asy
   res.json(fields);
 });
 
-const addressFields = {
-  sex: z.string().trim().optional(),
-  gender: z.string().trim().optional(),
-  civilStatus: z.string().trim().optional(),
-  street: z.string().trim().optional(),
-  brgyCode: z.string().trim().optional(),
-};
-
-// multipart/form-data text fields are always strings -- z.coerce.boolean()
-// would treat the string "false" as truthy (Boolean("false") === true).
-const formBoolean = z.preprocess((val) => (typeof val === 'string' ? val === 'true' : val), z.boolean());
-
-const coreSchema = z.object({
-  lname: z.string().trim().min(1),
-  fname: z.string().trim().min(1),
-  mname: z.string().trim().optional(),
-  bdate: z.coerce.date(),
-  ...addressFields,
-  // Only consulted when the module's own requiresCitizenLink is false --
-  // whether this particular submission should still attempt to link a
-  // Citizen (mirrors what was birthIsFromVigan when Birth was its own
-  // hand-built form). Ignored (always true) for every other module.
-  linkToCitizen: formBoolean.default(false),
-  // Optional household link -- e.g. Civil Registry's Birth module linking a
-  // newborn to a parent's household at the moment of registration, instead
-  // of admin having to do it separately afterward on the Households page.
-  // Available to every collectPersonInfo module, not just Birth (see
-  // households.ts's own comment on why this is shared, not duplicated).
-  householdParentKey: z.string().uuid().optional(),
-  householdRelation: z.string().trim().min(1).max(60).optional(),
-});
-
 // Every submission is multipart/form-data, even for modules with no FILE
 // fields -- one request shape for every module instead of a JSON path and a
 // separate form-data-only path for whichever modules happen to need a file
@@ -192,21 +157,6 @@ officeRouter.post(
       return;
     }
 
-    // A module with collectPersonInfo=false isn't about a person at all
-    // (e.g. an Assessor's Office "Lots" module) -- core.coreSchema (name,
-    // birthdate, ...) is never parsed for it, so it can't fail on those
-    // fields, and its records carry neither a person_key nor an
-    // unresolved_person, just whatever this module's own fields are.
-    let core: Record<string, unknown> = {};
-    if (officeModule.collectPersonInfo) {
-      const parsedCore = coreSchema.safeParse(req.body);
-      if (!parsedCore.success) {
-        sendError(res, 400, 'VALIDATION_ERROR', 'Invalid intake payload', parsedCore.error.flatten());
-        return;
-      }
-      core = uppercaseStrings(parsedCore.data as unknown as Record<string, unknown>);
-    }
-
     const fieldDefs = await client.officeFormField.findMany({ where: { moduleId: officeModule.id } });
     const fileFieldDefs = fieldDefs.filter((f) => f.fieldType === 'FILE');
     const jsonFieldDefs: DynamicFieldDef[] = fieldDefs.filter((f) => f.fieldType !== 'FILE');
@@ -220,9 +170,11 @@ officeRouter.post(
         return;
       }
     }
-    const fieldsParsed = buildDynamicFieldsSchema(jsonFieldDefs).safeParse(rawFields);
-    if (!fieldsParsed.success) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'Invalid intake fields', fieldsParsed.error.flatten());
+    // Person block (when the module collects one) and the module's own
+    // fields -- shared with the bulk import (services/intakeSubmission.ts).
+    const parsed = parseIntake(officeModule, jsonFieldDefs, req.body, rawFields);
+    if (!parsed.ok) {
+      sendError(res, 400, 'VALIDATION_ERROR', parsed.message, parsed.details);
       return;
     }
 
@@ -244,153 +196,30 @@ officeRouter.post(
       fileValues[field.key] = objectKey;
     }
 
-    const data = { ...uppercaseFreeText(fieldsParsed.data, jsonFieldDefs), ...fileValues };
-    const role = req.session.role!;
-    const actorUserId = req.session.userId!;
-
-    if (!officeModule.collectPersonInfo) {
-      try {
-        const record = await createOfficeRecord(client, officeModule.id, null, null, data, actorUserId);
-        await insertAuditLog(client, {
-          tableName: record.table,
-          recordId: record.recordId,
-          action: 'insert',
-          actorUserId,
-          actorRole: role,
-        });
-        res.status(201).json({ status: 'recorded', recordId: record.recordId });
-      } catch (err) {
-        console.error(err);
-        sendError(res, 500, 'INTERNAL_ERROR', 'Failed to register record');
-      }
-      return;
-    }
+    const data = { ...parsed.data, ...fileValues };
 
     try {
-      const shouldLink = officeModule.requiresCitizenLink || Boolean(core.linkToCitizen);
-
-      if (!shouldLink) {
-        const record = await createOfficeRecord(
-          client,
-          officeModule.id,
-          null,
-          { lname: core.lname, fname: core.fname, mname: core.mname, bdate: core.bdate },
-          data,
-          actorUserId,
-        );
-        await insertAuditLog(client, {
-          tableName: record.table,
-          recordId: record.recordId,
-          action: 'insert',
-          actorUserId,
-          actorRole: role,
-        });
-        res.status(201).json({ status: 'recorded_no_citizen_link', recordId: record.recordId });
-        return;
-      }
-
-      const resolveResult = await resolvePerson(
-        {
-          lname: core.lname as string,
-          fname: core.fname as string,
-          mname: core.mname as string | undefined,
-          bdate: core.bdate as Date,
-          sex: core.sex as string | undefined,
-          civilStatus: core.civilStatus as string | undefined,
-          street: core.street as string | undefined,
-          brgyCode: core.brgyCode as string | undefined,
-        },
-        { actorUserId, client },
-      );
-
-      if (resolveResult.status === 'needs_review') {
-        await client.$executeRaw`
-          INSERT INTO duplicate_review_queue_item (module_id, candidate_data, fuzzy_matches, created_by)
-          VALUES (
-            ${officeModule.id}::uuid,
-            ${JSON.stringify({ lname: core.lname, fname: core.fname, mname: core.mname, bdate: core.bdate, fields: data })}::jsonb,
-            ${JSON.stringify(resolveResult.candidates)}::jsonb,
-            ${actorUserId}::uuid
-          )
-        `;
-        await insertAuditLog(client, {
-          tableName: 'duplicate_review_queue_item',
-          action: 'insert',
-          actorUserId,
-          actorRole: role,
-          changedFields: { moduleId: officeModule.id, lname: core.lname as string, fname: core.fname as string },
-        });
-        res.status(202).json({ status: 'needs_review', candidates: resolveResult.candidates });
-        return;
-      }
-
-      if (resolveResult.status === 'created') {
-        await insertAuditLog(client, {
-          tableName: 'Citizen',
-          recordId: resolveResult.personKey,
-          action: 'insert',
-          actorUserId,
-          actorRole: role,
-        });
-      }
-
-      // Check-then-insert in one transaction: Relief Distribution refuses a
-      // second claim from the same household for the same event (see
-      // services/reliefClaims.ts); for every other module this is a no-op.
-      const personKey = resolveResult.personKey;
-      let record: Awaited<ReturnType<typeof createOfficeRecord>>;
-      try {
-        record = await client.$transaction(async (tx) => {
-          await assertNoReliefClaim(tx, officeModule, personKey, data);
-          return createOfficeRecord(tx, officeModule.id, personKey, null, data, actorUserId);
-        });
-      } catch (err) {
-        if (err instanceof ReliefAlreadyClaimedError) {
-          sendError(res, 409, 'ALREADY_RECEIVED', err.message, err.conflict);
+      const outcome = await submitIntake(client, officeModule, parsed.core, data, { userId: req.session.userId!, role: req.session.role! });
+      switch (outcome.kind) {
+        case 'recorded':
+        case 'recorded_no_citizen_link':
+          res.status(201).json({ status: outcome.kind, recordId: outcome.recordId });
           return;
-        }
-        throw err;
+        case 'needs_review':
+          res.status(202).json({ status: 'needs_review', candidates: outcome.candidates });
+          return;
+        case 'already_received':
+          sendError(res, 409, 'ALREADY_RECEIVED', outcome.message, outcome.conflict);
+          return;
+        case 'linked':
+          res.status(201).json({
+            status: outcome.status,
+            personKey: outcome.personKey,
+            recordId: outcome.recordId,
+            householdLinkWarning: outcome.householdLinkWarning,
+          });
+          return;
       }
-      await insertAuditLog(client, {
-        tableName: record.table,
-        recordId: record.recordId,
-        action: 'insert',
-        actorUserId,
-        actorRole: role,
-      });
-
-      // Best-effort: the intake itself is already saved above, so a problem
-      // linking the household (parent not found, this person already heads
-      // their own household, ...) is surfaced as a warning, not a failure --
-      // losing an otherwise-valid Birth record over a secondary link would
-      // be worse than just telling staff to fix the household link
-      // separately on the Households page.
-      let householdLinkWarning: string | undefined;
-      const householdParentKey = core.householdParentKey as string | undefined;
-      if (householdParentKey) {
-        const relation = (core.householdRelation as string | undefined)?.trim() || 'CHILD';
-        const headResult = await designateHouseholdHead(client, householdParentKey, actorUserId, role);
-        if (!headResult.ok) {
-          householdLinkWarning = headResult.message;
-        } else {
-          const memberResult = await addHouseholdMember(
-            client,
-            householdParentKey,
-            resolveResult.personKey,
-            relation,
-            actorUserId,
-            role,
-          );
-          if (!memberResult.ok) householdLinkWarning = memberResult.message;
-        }
-      }
-
-      res.status(201).json({
-        status: resolveResult.status,
-        personKey: resolveResult.personKey,
-        recordId: record.recordId,
-        householdLinkWarning,
-      });
     } catch (err) {
       console.error(err);
       sendError(res, 500, 'INTERNAL_ERROR', 'Failed to register record');

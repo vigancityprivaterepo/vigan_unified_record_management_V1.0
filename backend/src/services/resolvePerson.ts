@@ -153,3 +153,16 @@ export async function resolvePerson(candidate: ResolveCandidate, options?: Resol
     return { status: 'created' as const, personKey: created.personKey };
   });
 }
+
+// Read-only preview of what resolvePerson() would decide, for the bulk
+// import's "check" step: no lock, no transaction, nothing written. The real
+// import still goes through resolvePerson(), so a preview can only be out of
+// date (someone registered the person in between), never wrong in effect.
+export async function previewPerson(
+  client: QueryableClient,
+  candidate: ResolveCandidate,
+): Promise<'matched' | 'needs_review' | 'new'> {
+  if (await findExactMatch(client, candidate)) return 'matched';
+  if ((await findFuzzyMatches(client, candidate)).length > 0) return 'needs_review';
+  return 'new';
+}

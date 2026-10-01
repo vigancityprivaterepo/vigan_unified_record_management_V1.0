@@ -570,6 +570,9 @@ export type DataRequest = {
   receivedOn: string; status: 'open' | 'done' | 'declined'; response: string | null; closedOn: string | null; createdAt: string; updatedAt: string;
 };
 
+// Bulk import (office staff): see backend/src/services/officeImport.ts.
+export type ImportRowResult = { row: number; name: string | null; outcome: string; errors?: string[] };
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -582,6 +585,8 @@ export const api = {
   // --- Office (office_staff-facing) -------------------------------------------
   getOffice: (officeId: string) => request<Office>(`/offices/${officeId}`).then((o) => (registerShortNames([o]), o)),
   getOfficeModules: (officeId: string) => request<OfficeModule[]>(`/offices/${officeId}/modules`),
+  importRecords: (officeId: string, moduleId: string, body: { dryRun: boolean; batchId?: string; fileName?: string; rows: Array<{ core: Record<string, string>; fields: Record<string, string> }> }) =>
+    request<{ batchId: string; results: ImportRowResult[] }>(`/offices/${officeId}/modules/${moduleId}/import`, { method: 'POST', body: JSON.stringify(body) }),
   getOfficeModuleFields: (officeId: string, moduleId: string) =>
     request<OfficeFormField[]>(`/offices/${officeId}/modules/${moduleId}/fields`),
   // Backs the household-link picker on an office's own intake form -- top
