@@ -47,7 +47,7 @@ describe('office records list statuses + CSV exports', () => {
 
     const all = await agent.get(url);
     expect(all.status).toBe(200);
-    expect(all.body.counts).toEqual({ all: 3, linked: 1, new: 1, unlinked: 0, review: 1 });
+    expect(all.body.counts).toEqual({ all: 3, linked: 1, new: 1, unlinked: 0, review: 1, archived: 0 });
     expect(all.body.items.map((i: { status: string }) => i.status).sort()).toEqual(['linked', 'new', 'review']);
 
     const review = await agent.get(url).query({ status: 'review' });
