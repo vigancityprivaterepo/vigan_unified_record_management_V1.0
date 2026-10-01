@@ -12,6 +12,7 @@ import { adminDashboardWidgetsRouter } from './routes/adminDashboardWidgets';
 import { adminDisasterListsRouter } from './routes/adminDisasterLists';
 import { adminInsightsRouter } from './routes/adminInsights';
 import { adminOfficesRouter } from './routes/adminOffices';
+import { adminPrivacyRouter } from './routes/adminPrivacy';
 import { adminProgramGapsRouter } from './routes/adminProgramGaps';
 import { adminReviewRouter } from './routes/adminReview';
 import { adminSettingsRouter } from './routes/adminSettings';
@@ -56,6 +57,7 @@ export function createApp(options?: {
   app.use('/admin/program-gaps', adminProgramGapsRouter);
   app.use('/admin/disaster-lists', adminDisasterListsRouter);
   app.use('/admin/business-renewals', adminBusinessRenewalsRouter);
+  app.use('/admin/privacy', adminPrivacyRouter);
   app.use('/admin', adminDashboardRouter);
 
   // multer's file-size-limit and fileFilter rejections arrive here (they

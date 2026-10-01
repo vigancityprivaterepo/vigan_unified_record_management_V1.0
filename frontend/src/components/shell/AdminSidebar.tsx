@@ -13,6 +13,7 @@ export type AdminTab =
   | 'gaps'
   | 'disaster'
   | 'renewals'
+  | 'privacy'
   | 'queue'
   | 'workspaces'
   | 'offices:list'
@@ -38,6 +39,7 @@ const MANAGE: Array<{ key: AdminTab; label: string; icon: string }> = [
   { key: 'offices:list', label: 'Offices', icon: 'building' },
   { key: 'settings:staff', label: 'Staff accounts', icon: 'staff' },
   { key: 'settings:duplicate-matching', label: 'Matching settings', icon: 'sliders' },
+  { key: 'privacy', label: 'Privacy', icon: 'shield' },
 ];
 
 export const ADMIN_TAB_LABELS: Record<string, string> = {

@@ -252,6 +252,11 @@ adminDashboardRouter.get('/citizens/:personKey', async (req, res) => {
     }
   }
 
+  // Recorded so the citizen's access history (Privacy) shows who opened it.
+  await insertAuditLog(client, {
+    tableName: 'Citizen', recordId: citizen.personKey, action: 'read', actorUserId: req.session.userId, actorRole: req.session.role,
+    changedFields: { event: 'profile_view' },
+  });
   res.json({
     citizen: {
       ...citizenWithoutEncryptedFields,
@@ -429,6 +434,10 @@ adminDashboardRouter.get('/households/:headPersonKey', async (req, res) => {
   // "everything on file for this person," not a membership-overlap story.
   const categoriesByPerson = await categoriesForPersonKeys(client, [headPersonKey, ...members.map((m) => m.personKey)]);
 
+  await insertAuditLog(client, {
+    tableName: 'Citizen', recordId: headPersonKey, action: 'read', actorUserId: req.session.userId, actorRole: req.session.role,
+    changedFields: { event: 'household_view', personKeys: [headPersonKey, ...members.map((m) => m.personKey)] },
+  });
   res.json({
     head: { ...head, barangayName: head.barangay?.name ?? null, categories: categoriesByPerson.get(headPersonKey) ?? [] },
     members: members.map((m) => ({ ...m, categories: categoriesByPerson.get(m.personKey) ?? [] })),

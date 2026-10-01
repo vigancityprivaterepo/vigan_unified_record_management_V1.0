@@ -557,6 +557,19 @@ export type RenewalBusiness = {
 };
 export type RenewalFilters = { lastYear?: number | 'none'; barangay?: string; line?: string; statusCode?: string; q?: string };
 
+// Privacy (admin): see backend/src/services/privacy.ts and routes/adminPrivacy.ts.
+export type AccessEntry = { id: string; at: string; who: string; office: string | null; role: string | null; what: string };
+export type AccessReport = {
+  month: string;
+  people: Array<{ who: string; office: string | null; role: string | null; views: number; exports: number; rowsExported: number }>;
+  exports: Array<{ id: string; at: string; who: string; office: string | null; what: string; rows: number | null }>;
+};
+export type DataRequestKind = 'access' | 'correction' | 'erasure' | 'objection' | 'other';
+export type DataRequest = {
+  id: string; personKey: string | null; requesterName: string; contact: string | null; kind: DataRequestKind; details: string | null;
+  receivedOn: string; status: 'open' | 'done' | 'declined'; response: string | null; closedOn: string | null; createdAt: string; updatedAt: string;
+};
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -615,6 +628,13 @@ export const api = {
   exportMasterlist: () => download('/admin/citizens/export.csv', 'citizen-masterlist.csv'),
   // Program gaps and disaster lists: officeId set = that office's own view
   // (/offices/:id/...), unset = admin's whole-city view (/admin/...).
+  accessHistory: (personKey: string) => request<{ entries: AccessEntry[] }>(`/admin/privacy/people/${personKey}/access`),
+  privacyAccess: (month: string) => request<AccessReport>(`/admin/privacy/access${queryString({ month })}`),
+  dataRequests: (f: { status?: string; personKey?: string } = {}) => request<DataRequest[]>(`/admin/privacy/requests${queryString(f)}`),
+  createDataRequest: (input: { requesterName: string; personKey: string | null; contact: string | null; kind: DataRequestKind; details: string | null; receivedOn: string }) =>
+    request<DataRequest>('/admin/privacy/requests', { method: 'POST', body: JSON.stringify(input) }),
+  updateDataRequest: (id: string, input: { status?: DataRequest['status']; response?: string | null; closedOn?: string | null }) =>
+    request<DataRequest>(`/admin/privacy/requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),
   renewalSummary: (officeId?: string) => request<RenewalSummary>(`${listBase(officeId)}/business-renewals`),
   renewalList: (officeId: string | undefined, page: number, f: RenewalFilters) =>

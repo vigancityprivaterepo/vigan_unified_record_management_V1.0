@@ -445,3 +445,28 @@ model ProgramGapRule {
 
   @@map("program_gap_rule")
 }
+
+// --- Data subject requests (RA 10173) -------------------------------------------
+// A citizen asking to see, correct or delete their data, or objecting to its
+// use. Logged so the city can show each request was answered. personKey is
+// optional: the requester may not be in the registry. Never hard-deleted.
+model DataRequest {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personKey     String?   @db.Uuid @map("person_key")
+  requesterName String    @map("requester_name")
+  contact       String?
+  kind          String // 'access' | 'correction' | 'erasure' | 'objection' | 'other'
+  details       String?
+  receivedOn    DateTime  @db.Date @map("received_on")
+  status        String    @default("open") // 'open' | 'done' | 'declined'
+  response      String?
+  closedOn      DateTime? @db.Date @map("closed_on")
+  createdAt     DateTime  @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt     DateTime  @updatedAt @db.Timestamptz() @map("updated_at")
+  createdBy     String?   @db.Uuid @map("created_by")
+  updatedBy     String?   @db.Uuid @map("updated_by")
+
+  @@index([personKey])
+  @@map("data_request")
+}
+

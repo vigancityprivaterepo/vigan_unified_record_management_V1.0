@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CitizenPrivacySection } from '@/pages/PrivacyPage';
 import { Icon } from '@/components/Icon';
 import { OfficeMark } from '@/components/OfficeMark';
 import { Modal } from '@/components/Modal';
@@ -270,6 +271,7 @@ function CitizenProfile({ data, onOpen, onOpenHousehold, onUpdated }: {
           onUpdated={onUpdated}
         />
       </div>
+      <CitizenPrivacySection personKey={citizen.personKey} name={fullName(citizen)} />
     </div>
   );
 }

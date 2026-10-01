@@ -24,6 +24,7 @@ import { HouseholdsPage } from '@/pages/HouseholdsPage';
 import { ProgramGapsPage } from '@/pages/ProgramGapsPage';
 import { DisasterListsPage } from '@/pages/DisasterListsPage';
 import { BusinessRenewalsPage } from '@/pages/BusinessRenewalsPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { OfficeHomePage } from '@/pages/OfficeHomePage';
 import { OfficeWorkspacesPage } from '@/pages/OfficeWorkspacesPage';
@@ -47,6 +48,7 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   gaps: () => <ProgramGapsPage />,
   disaster: () => <DisasterListsPage />,
   renewals: () => <BusinessRenewalsPage />,
+  privacy: PrivacyPage,
   queue: DuplicateReviewQueuePage,
   workspaces: OfficeWorkspacesPage,
   'offices:create': CreateOfficePage,

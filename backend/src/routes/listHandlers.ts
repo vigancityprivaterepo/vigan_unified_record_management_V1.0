@@ -92,7 +92,7 @@ export const gapPeople: RequestHandler = asyncHandler(async (req, res) => {
     countGap(client, rule, filters),
     listGapPeople(client, rule, filters, { limit: GAP_PAGE_SIZE, offset: (page - 1) * GAP_PAGE_SIZE }),
   ]);
-  await audit(req, 'program_gap_rule', rule.id, { view: 'people', page, barangayCode: filters.barangayCode ?? null, rows: items.length });
+  await audit(req, 'program_gap_rule', rule.id, { view: 'people', page, barangayCode: filters.barangayCode ?? null, rows: items.length, personKeys: items.map((p) => p.personKey) });
   const body: Paginated<GapPerson> = { items, total, page, pageSize: GAP_PAGE_SIZE };
   res.json(body);
 });
@@ -144,8 +144,8 @@ function disasterFilters(req: Request): DisasterFilters | null {
   if (raw && !(CATEGORIES as readonly string[]).includes(raw)) return null;
   return { barangayCode: barangayOf(req), category: raw as Category | undefined };
 }
-const auditDisaster = (req: Request, view: string, f: DisasterFilters, rows: number) =>
-  audit(req, 'Citizen', null, { view: `disaster-list:${view}`, barangayCode: f.barangayCode ?? null, category: f.category ?? null, rows });
+const auditDisaster = (req: Request, view: string, f: DisasterFilters, rows: number, personKeys?: string[]) =>
+  audit(req, 'Citizen', null, { view: `disaster-list:${view}`, barangayCode: f.barangayCode ?? null, category: f.category ?? null, rows, ...(personKeys ? { personKeys } : {}) });
 
 export const disasterSummary: RequestHandler = asyncHandler(async (req, res) => {
   const client = clientFor(req);
@@ -158,7 +158,7 @@ export const disasterPeople: RequestHandler = asyncHandler(async (req, res) => {
   if (!f) { sendError(res, 400, 'VALIDATION_ERROR', 'Unknown category'); return; }
   const page = parsePage(req.query.page);
   const { total, items } = await listVulnerable(clientFor(req), f, { limit: DISASTER_PAGE_SIZE, offset: (page - 1) * DISASTER_PAGE_SIZE });
-  await auditDisaster(req, 'people', f, items.length);
+  await auditDisaster(req, 'people', f, items.length, items.map((p) => p.personKey));
   const body: Paginated<VulnerablePerson> = { items, total, page, pageSize: DISASTER_PAGE_SIZE };
   res.json(body);
 });
@@ -167,7 +167,7 @@ export const disasterPrint: RequestHandler = asyncHandler(async (req, res) => {
   const f = disasterFilters(req);
   if (!f || !f.barangayCode) { sendError(res, 400, 'VALIDATION_ERROR', 'Choose one barangay to print'); return; }
   const { total, items } = await listVulnerable(clientFor(req), f, { limit: PRINT_LIMIT, offset: 0 });
-  await auditDisaster(req, 'print', f, items.length);
+  await auditDisaster(req, 'print', f, items.length, items.map((p) => p.personKey));
   res.json({ total, items, truncated: total > items.length });
 });
 
