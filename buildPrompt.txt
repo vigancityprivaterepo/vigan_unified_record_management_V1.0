@@ -1,0 +1,187 @@
+Vigan Unified Citizen Records System
+
+Paste this into Claude Code (or any coding agent). It's structured as sequential phases, each with a scope, deliverables, and an exit checklist — don't start the next phase until the current one's checklist passes. This lets you stop after any phase with a working, demoable system instead of a half-built monolith.
+
+Project overview
+
+Build a Unified Citizen Records System for a Philippine city government (Vigan). Multiple offices (CSWD, Agriculture, Civil Registry) each maintain their own records for a person, but all offices share one underlying Citizen identity — the same person is never duplicated across offices. An admin-only master view aggregates every office's data for a given person.
+
+This is an internal, air-gapped LGU tool. Assume no reliable internet at runtime, no external API calls, no CDN dependencies, no third-party auth providers. Everything must run from docker compose up on a local server with no outbound connectivity.
+
+Tech stack
+Backend: Node.js + Express, Prisma ORM, PostgreSQL 15+ (needs superuser access once, at migration time, to enable extensions)
+Extensions: pg_trgm (fuzzy name matching), pgcrypto (application-level column encryption support)
+Row-Level Security: each office's DB role can only read/write its own satellite tables plus the specific Citizen columns it's granted. RLS is enforced in Postgres, not just simulated in application code.
+Frontend: React + Vite + TypeScript + Tailwind CSS, shadcn/ui for tables and forms
+File storage: MinIO (S3-compatible, self-hosted) for uploaded documents (birth certificates, PWD ID scans). No binaries in Postgres.
+Deployment: Docker Compose, fully offline/on-prem. All images pinned to specific versions and vendored/pre-pulled — do not rely on latest tags or runtime npm install against a public registry on the target machine.
+Auth: RBAC with roles cswd_staff, agri_staff, civil_registry_staff, admin. Session-based (server-side sessions in Postgres or Redis), not JWT — simpler to revoke instantly on an internal tool, and avoids clock-skew/offline-verification complexity for no real benefit here.
+Cross-cutting engineering conventions (apply from Phase 0 onward)
+Language: TypeScript on both backend and frontend, strict mode on.
+API contract: OpenAPI 3 spec generated from route definitions (e.g. via zod-to-openapi or tsoa) — needed because multiple offices' UIs consume the same API and drift is a real risk.
+Validation: all request bodies validated with zod at the API boundary, not just at the DB layer.
+Error format: one consistent JSON error shape ({ error: { code, message, details } }) across every endpoint from day one — retrofitting this later touches every route.
+Timezones: store all dates as date (not timestamptz) for birthdates/death dates — these are calendar dates, not instants; store created_at/updated_at as timestamptz in UTC, display in Asia/Manila.
+IDs: all PKs are UUIDv7 (time-ordered) if your Prisma/Postgres version supports it, else UUIDv4 — avoid sequential integer PKs for anything cross-office to prevent enumeration.
+Data model
+Citizen (master table)
+person_key                uuid, PK
+person_parent_key         uuid, FK -> Citizen (nullable, household head)
+person_sub_parent_key     uuid, FK -> Citizen (nullable)
+person_is_head            boolean
+person_relation_to_head   text
+person_lname, person_fname, person_mname   text
+person_street, person_brgy   text  -- brgy should FK to a PSGC barangay lookup table, not free text
+person_sex, person_gender    text
+person_bdate              date
+person_civil_status       text
+person_religion           text
+person_educ_level, person_educ_course        text
+person_occupation, person_occupation_industry text
+person_occupation_bus_name, person_occupation_bus_address text
+person_sss, person_gsis, person_philhealth   text  -- encrypted at rest, see Security section
+created_at, updated_at, created_by, updated_by
+is_archived boolean default false   -- soft-delete flag, see Phase 6
+
+Do not store age as a column — compute it from person_bdate at query time.
+
+Addition: create a Barangay reference table (PSGC code, name) seeded once, and FK person_brgy to it. Free-text barangay fields guarantee dirty data and break the cross-office dashboard's per-barangay counts later.
+
+Satellite tables (each FKs back to Citizen via person_key)
+Persons_Senior: sn_key (PK), person_key (FK), sn_commorbidity, sn_is_have_id
+Persons_PWD: pwd_key (PK), person_key (FK), pwd_type_of_disability, pwd_commorbidity, pwd_is_have_id
+Persons_Solo_Parent: sp_key (PK), person_key (FK), sp_number_of_children, sp_is_have_id
+Persons_Farmer: farmer_key (PK), person_key (FK), farmer_is_senior, farmer_is_pwd, farmer_location_of_farm, farmer_size_of_farm
+Person_Birth: birth_key (PK), person_key (FK, nullable until resolved), birth_lname, birth_fname, birth_mname, birth_bdate, birth_bplace, birth_mother, birth_father, birth_order, birth_is_from_vigan, birth_upload_doc (MinIO object key, not a path)
+Person_Death: death_key (PK), person_key (FK), death_ddate, death_place_of_death, death_cause_of_death
+
+All satellite tables get is_archived boolean default false for the soft-delete requirement — apply it uniformly, not just to Birth/Death, so the pattern doesn't fork later.
+
+Audit log
+audit_log: id, table_name, record_id, action (insert/update/delete/read/merge),
+           actor_user_id, actor_role, changed_fields (jsonb), timestamp
+
+Log every read and write touching Citizen or any satellite table (Data Privacy Act, RA 10173 compliance — not optional). Add action = 'merge' for duplicate-resolution merges specifically, since those need their own audit trail distinct from ordinary edits (see Phase 4).
+
+Addition: the audit log itself must be admin-read-only and append-only — no role, including admin via the app, should be able to UPDATE or DELETE audit_log rows. Enforce with a Postgres trigger or a REVOKE on those statements for every app role, not just application-level checks.
+
+Core feature: Identity resolution
+
+Every office intake form (new record in any satellite table) goes through this flow before writing. Build it as one reusable service, resolvePerson(candidateData) — every satellite table's create-flow calls it, no per-office copies.
+
+Search Citizen for an exact match on lname + fname + bdate (case-insensitive, trimmed).
+Exact match → use the existing person_key; link the new satellite record. Do not create a new Citizen row.
+No exact match → fuzzy search using pg_trgm similarity on lname + fname, combined with an exact or near bdate match.
+Similarity above threshold (configurable, default 0.6) → do not auto-decide. Push to the Admin Duplicate Review Queue with both candidates shown side by side.
+No similarity match → create a new Citizen row and person_key, then the satellite record.
+
+Gaps to close before this is production-safe:
+
+Merge semantics: define what happens when an admin confirms "same person" for two records that already each have their own satellite data (e.g. Birth record A has a PWD record, Birth record B has a Senior record, and they turn out to be the same person). The merge must reassign all satellite FKs from the losing person_key to the winning one, log the merge with both original keys in audit_log, and either archive or delete the losing Citizen row (never hard-delete if any of its satellite rows are Birth/Death — see retention rule below). Write this as its own mergeCitizens(winningKey, losingKey, actorId) function with a transaction wrapping every FK reassignment.
+Race condition: two offices resolving the same new person concurrently (e.g. simultaneous intake) can both land in step 5 and create duplicate Citizen rows before either commits. Use a DB-level unique constraint or advisory lock keyed on normalized lname+fname+bdate during the resolve-and-create transaction, not just an application-level check-then-insert.
+Threshold tuning: the 0.6 similarity threshold needs to live in config (env var or a settings table admins can adjust), not be hardcoded — Filipino naming conventions (shared surnames within a barangay, common first names) will need real-world tuning after the first few hundred records.
+Per-office functionality
+CSWD: register/manage Senior, PWD, Solo Parent records; track ID issuance status; benefit disbursement status.
+Agriculture: register farmers; RSBSA-style masterlist export (CSV).
+Civil Registry: birth/death record intake, document upload (via MinIO), verification status, is_from_vigan flag driving whether the record also creates/updates a Citizen row.
+Admin functionality
+Citizen 360 view: full Citizen profile + which offices hold records for this person, on one screen.
+Household view: group citizens by person_parent_key / person_sub_parent_key.
+Duplicate Review Queue: approve/reject flagged fuzzy matches; decision + reviewer logged in audit_log; approval triggers mergeCitizens.
+Cross-office dashboard: counts of seniors / PWDs / farmers per barangay (needs the Barangay reference table above to be reliable).
+Export in a DILG DMS4LGUs-compatible format.
+Security / compliance requirements
+Encrypt person_sss, person_gsis, person_philhealth at rest using application-level encryption (e.g. pgcrypto's pgp_sym_encrypt, or AES-GCM in the app layer with a key from an env-injected secret) — not just disk encryption.
+Key management on an air-gapped box: decide up front where the encryption key lives (Docker secret file, not baked into the image or committed anywhere) and document the key-rotation procedure, since there's no cloud KMS to lean on here.
+RBAC enforced at both API layer and DB layer (RLS) — an API bug should not be the only thing standing between CSWD staff and Agriculture's tables.
+No hard-deletes on Person_Birth / Person_Death — civil registry records are subject to retention under RA 9470 (National Archives Act); use is_archived instead. Apply the same soft-delete discipline to the Citizen table itself (see merge semantics above).
+Addition — session security: short session idle-timeout (e.g. 30 min) given shared front-desk workstations are likely; log every login/logout to audit_log.
+Addition — file upload validation: enforce MIME-type allowlist and max size on document uploads before they reach MinIO; scan filenames for path traversal even though MinIO keys aren't filesystem paths, since the upload key is often derived from the original filename.
+Phased build order
+
+Each phase lists its scope, deliverables, and an exit checklist. Don't move on until the checklist passes.
+
+Phase 0 — Environment & scaffolding
+
+Scope: repo structure, Docker Compose skeleton (Postgres, MinIO, backend, frontend, no app logic yet), env/secrets handling, CI lint/typecheck. Exit checklist:
+
+ docker compose up brings up empty Postgres + MinIO + a "hello world" API + a "hello world" frontend, no internet required after initial image pull
+ Secrets (DB password, encryption key, session secret) are read from Docker secrets or .env, never hardcoded, .env.example committed
+ Lint + typecheck run in CI (or a local pre-commit hook, if there's no CI runner on-prem)
+Phase 1 — Schema, migrations, seed data
+
+Scope: Prisma schema for Citizen + all satellite tables + audit_log + Barangay reference table; migrations; seed script with realistic fake PH data (not production data) for local dev. Exit checklist:
+
+ prisma migrate deploy runs clean on an empty DB
+ Seed script populates enough fake citizens/households to exercise fuzzy matching and household grouping
+ pg_trgm and pgcrypto extensions enabled via migration, not a manual psql step
+Phase 2 — Identity resolution service
+
+Scope: resolvePerson(), mergeCitizens(), the race-condition lock, threshold config. Unit + integration tests only — no UI yet. Exit checklist:
+
+ Unit tests: exact match, fuzzy match above/below threshold, no match, and the merge-reassigns-all-FKs case
+ Integration test simulating concurrent resolve calls for the same new person proves only one Citizen row is created
+ Threshold is read from config, changeable without a code deploy
+Phase 3 — Auth, RBAC, RLS
+
+Scope: session auth, the four roles, Postgres RLS policies per role, audit-log-is-append-only enforcement. Exit checklist:
+
+ A cswd_staff DB session cannot SELECT or UPDATE Agriculture's satellite tables even via a raw SQL client, not just through the API
+ Session idle-timeout enforced and tested
+ Audit log UPDATE/DELETE blocked at the DB grant level for every role
+Phase 4 — First office end-to-end: CSWD Senior Citizen flow
+
+Scope: full intake → resolvePerson → satellite record → audit log, for the simplest office/table pair, to validate the whole pattern before replicating it. Exit checklist:
+
+ A staff user can register a senior citizen, see fuzzy-match candidates when applicable, and the record is correctly linked or queued
+ Every write in the flow produces a correct audit_log row
+ This flow is demoable end-to-end in the UI, not just via API calls
+Phase 5 — Duplicate Review Queue (admin)
+
+Scope: queue UI, approve/reject actions wired to mergeCitizens, reviewer + decision logging. Exit checklist:
+
+ Approving a match correctly reassigns satellite FKs and archives the losing Citizen row
+ Rejecting a match creates a new, distinct Citizen row and the queue item is cleared
+ Every decision is attributed to the reviewing admin in audit_log
+Phase 6 — Remaining office intake flows
+
+Scope: PWD, Solo Parent, Farmer (with RSBSA CSV export), Birth/Death (with MinIO upload + is_from_vigan logic), all reusing resolvePerson() — no per-office duplication of resolution logic. Exit checklist:
+
+ Each office's intake flow is demoable end-to-end
+ Birth/Death soft-delete is verified — no code path can hard-delete these rows
+ MinIO upload rejects disallowed MIME types / oversized files
+Phase 7 — Admin dashboard & exports
+
+Scope: Citizen 360 view, household view, cross-office per-barangay dashboard, DILG DMS4LGUs export. Exit checklist:
+
+ Citizen 360 correctly aggregates data across all offices for a given person_key
+ Barangay counts match a manual spot-check against seed data
+ Export file opens correctly in the target DILG-compatible format (verify actual field mapping, not just CSV shape)
+Phase 8 — Security & RLS hardening pass
+
+Scope: re-audit every endpoint against the role matrix, penetration-style manual testing of RLS boundaries, encryption-at-rest verification, key rotation runbook written down. Exit checklist:
+
+ Attempted cross-office access, tested manually per role, fails everywhere it should
+ person_sss/gsis/philhealth confirmed unreadable via direct psql SELECT without the app-layer key
+ Key rotation procedure documented and dry-run once
+Phase 9 — Offline resilience & backup/restore
+
+Scope: since this runs air-gapped, define and test the backup/restore story now, not after data loss. pg_dump cron to local disk (or attached storage), MinIO bucket backup, a documented restore runbook, and a check that the stack survives a full server reboot without manual intervention. Exit checklist:
+
+ Backup job runs on a schedule and produces a restorable dump (test the restore, not just the backup)
+ docker compose up after a reboot brings the full stack back with no manual DB fixes
+ MinIO data survives a container recreate (verify volume mounts are correct, not ephemeral)
+Phase 10 — Deployment finalization
+
+Scope: final Docker Compose for the target LGU server, all images pinned and pre-pulled/vendored for offline install, handoff documentation for whoever maintains this after you. Exit checklist:
+
+ A clean machine with no internet access can run the full install from a vendored bundle
+ Handoff doc covers: role management, backup/restore, key rotation, threshold tuning, and how to onboard a new office if one is added later
+Scope-cutting notes (if you need a smaller v1)
+Drop MinIO for v1 — store uploads on local disk with a path column, migrate to MinIO in Phase 6 once the pattern is proven.
+Drop the fuzzy-match queue for v1 — exact-match-only, flag everything else as "needs manual entry." Ships faster; you lose dedup on typos until Phase 2/5 are revisited.
+Drop the cross-office dashboard (Phase 7's per-barangay counts) for v1 — it's only meaningful once all three offices have real data.
+If cutting scope, still keep Phase 3 (RBAC/RLS) and Phase 9 (backup/restore) in v1 — these are the two things that are far more expensive to retrofit than to build in from the start.
+
+
+ dev-password-not-for-prod

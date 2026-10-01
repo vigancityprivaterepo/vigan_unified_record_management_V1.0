@@ -1,0 +1,40 @@
+node_modules/
+dist/
+build/
+.env
+docker/secrets/*.txt
+!docker/secrets/README.md
+*.log
+.DS_Store
+Thumbs.db
+
+# Real backup archives -- never committed. .gitkeep preserves the directory.
+backups/postgres/*.sql.gz
+backups/minio/*.tar.gz
+offline-bundle/
+
+# Uploaded documents when DOCUMENT_STORAGE=local -- personal data, never committed.
+backend/storage/
+
+# Real personal data imported from offices (EGAPS owners, BPLS businesses) -- never committed.
+land-td-owners.csv
+business-owners.csv
+
+# Local working copies of changed files from redesign/audit rounds.
+backups/*
+!backups/postgres/
+!backups/minio/
+backups/postgres/*
+!backups/postgres/.gitkeep
+backups/minio/*
+!backups/minio/.gitkeep
+
+# Third-party repositories kept only as design reference (they have their own git history).
+reference/Adminator-admin-dashboard/
+reference/Anti-AI-UI/
+
+# Local agent/editor state.
+.claude/
+
+# TypeScript incremental build cache.
+*.tsbuildinfo

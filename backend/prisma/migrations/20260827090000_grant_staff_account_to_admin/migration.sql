@@ -1,0 +1,12 @@
+-- Reverses a deliberate earlier boundary (see scripts/manageStaffAccount.ts's
+-- header comment): staff account management was kept entirely off the web
+-- app's trust boundary, requiring the migration-owner superuser connection.
+-- Product decision (explicitly confirmed, not a default): the admin role
+-- gets a web UI for this instead. Trade-off accepted: an admin *web
+-- session* compromise can now create new staff accounts and reset any
+-- staff member's password, not just view/edit citizen records.
+--
+-- No DELETE -- accounts are deactivated (is_active = false), never deleted,
+-- matching the existing CLI script's own lifecycle model and preserving
+-- audit_log's actor_user_id FK history.
+GRANT SELECT, INSERT, UPDATE ON "staff_account" TO admin;

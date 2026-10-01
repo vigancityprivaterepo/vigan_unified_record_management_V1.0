@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --workspaces
+      - run: npm run lint
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.8-alpine
+        env:
+          POSTGRES_USER: vigan
+          POSTGRES_PASSWORD: ci_only_not_a_real_secret
+          POSTGRES_DB: vigan_ucrms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      minio:
+        image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+        env:
+          MINIO_ROOT_USER: vigan_admin
+          MINIO_ROOT_PASSWORD: ci_only_not_a_real_secret
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        # `services:` containers don't take a custom command, so this
+        # relies on the image's default entrypoint (`minio server /data`)
+        # rather than the docker-compose.yml's explicit command.
+    env:
+      DATABASE_URL: postgresql://vigan:ci_only_not_a_real_secret@localhost:5432/vigan_ucrms?schema=public
+      DATABASE_HOST: localhost
+      DATABASE_PORT: '5432'
+      DATABASE_NAME: vigan_ucrms
+      # Phase 3 RBAC roles -- throwaway CI-only passwords, not real secrets.
+      CSWD_STAFF_DB_PASSWORD: ci_only_cswd_staff
+      AGRI_STAFF_DB_PASSWORD: ci_only_agri_staff
+      CIVIL_REGISTRY_STAFF_DB_PASSWORD: ci_only_civil_registry_staff
+      ADMIN_DB_PASSWORD: ci_only_admin
+      APP_SERVICE_DB_PASSWORD: ci_only_app_service
+      SESSION_SECRET: ci_only_session_secret
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: '9000'
+      MINIO_ACCESS_KEY: vigan_admin
+      DB_PASSWORD: ci_only_not_a_real_secret
+      ENCRYPTION_KEY: ci_only_encryption_key_not_a_real_secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --workspaces
+      - run: npx prisma migrate deploy
+        working-directory: backend
+      - run: npm run db:provision-roles --workspace backend
+      - run: npx prisma db seed
+        working-directory: backend
+      - run: npm run test --workspace backend

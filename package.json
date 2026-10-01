@@ -1,0 +1,15 @@
+{
+  "name": "vigan-ucrms",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vigan Unified Citizen Records System",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

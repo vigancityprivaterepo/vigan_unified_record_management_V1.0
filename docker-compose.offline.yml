@@ -1,0 +1,167 @@
+# Phase 10: the compose file actually run on the target LGU server. Same
+# services as docker-compose.yml, but with two differences that matter for
+# an air-gapped install:
+#   1. `backend`/`frontend` reference pre-built, pre-tagged images instead
+#      of a `build:` context -- there is no source checkout, no npm
+#      registry, and no Docker Hub reachable from the target machine, so
+#      nothing here can build anything.
+#   2. Every service sets `pull_policy: never` -- if an expected image
+#      isn't already present (via `docker load` from the vendored bundle),
+#      Compose fails loudly instead of silently trying to reach a registry.
+#      This is the actual, enforced proof of "no internet access needed",
+#      not just a claim in a doc.
+#
+# See ops/build_offline_bundle.sh (run on a machine WITH internet, to
+# produce the bundle) and ops/install_offline.sh (run on the target machine,
+# no internet required) -- and ops/README.md for the full runbook.
+
+secrets:
+  db_password:
+    file: ./docker/secrets/db_password.txt
+  session_secret:
+    file: ./docker/secrets/session_secret.txt
+  encryption_key:
+    file: ./docker/secrets/encryption_key.txt
+  cswd_staff_db_password:
+    file: ./docker/secrets/cswd_staff_db_password.txt
+  agri_staff_db_password:
+    file: ./docker/secrets/agri_staff_db_password.txt
+  civil_registry_staff_db_password:
+    file: ./docker/secrets/civil_registry_staff_db_password.txt
+  admin_db_password:
+    file: ./docker/secrets/admin_db_password.txt
+  app_service_db_password:
+    file: ./docker/secrets/app_service_db_password.txt
+
+volumes:
+  pgdata:
+  miniodata:
+
+services:
+  postgres:
+    image: postgres:15.8-alpine
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vigan}
+      POSTGRES_DB: ${POSTGRES_DB:-vigan_ucrms}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-vigan}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    pull_policy: never
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vigan_admin}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - miniodata:/data
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${IMAGE_TAG_PREFIX:-vigan-ucrms}-backend:${OFFLINE_IMAGE_TAG:-1.0.0}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${BACKEND_PORT:-4000}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-vigan_ucrms}
+      DATABASE_USER: ${POSTGRES_USER:-vigan}
+      SESSION_IDLE_TIMEOUT_MINUTES: ${SESSION_IDLE_TIMEOUT_MINUTES:-30}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-5173}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-vigan_admin}
+      CSWD_STAFF_DB_PASSWORD_FILE: /run/secrets/cswd_staff_db_password
+      AGRI_STAFF_DB_PASSWORD_FILE: /run/secrets/agri_staff_db_password
+      CIVIL_REGISTRY_STAFF_DB_PASSWORD_FILE: /run/secrets/civil_registry_staff_db_password
+      ADMIN_DB_PASSWORD_FILE: /run/secrets/admin_db_password
+      APP_SERVICE_DB_PASSWORD_FILE: /run/secrets/app_service_db_password
+    secrets:
+      - db_password
+      - session_secret
+      - encryption_key
+      - cswd_staff_db_password
+      - agri_staff_db_password
+      - civil_registry_staff_db_password
+      - admin_db_password
+      - app_service_db_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - '${BACKEND_PORT:-4000}:4000'
+
+  frontend:
+    image: ${IMAGE_TAG_PREFIX:-vigan-ucrms}-frontend:${OFFLINE_IMAGE_TAG:-1.0.0}
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '${FRONTEND_PORT:-5173}:80'
+
+  backup:
+    image: postgres:15.8-alpine
+    pull_policy: never
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/backup/pg_backup_loop.sh']
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-vigan}
+      PGDATABASE: ${POSTGRES_DB:-vigan_ucrms}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    secrets:
+      - db_password
+    volumes:
+      - ./ops/pg_backup_loop.sh:/backup/pg_backup_loop.sh:ro
+      - ./backups/postgres:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  minio-backup:
+    image: alpine:3.20
+    pull_policy: never
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/backup/minio_backup_loop.sh']
+    environment:
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/minio_backup_loop.sh:/backup/minio_backup_loop.sh:ro
+      - miniodata:/data:ro
+      - ./backups/minio:/backups
+    depends_on:
+      minio:
+        condition: service_healthy

@@ -1,0 +1,261 @@
+<title>VUCRMS Adoption Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #FAF8F3;
+    --paper-edge: #F2EFE7;
+    --ink: #1C2420;
+    --ink-muted: #5B655F;
+    --ink-faint: #8B948D;
+    --rule: #D9D3C4;
+    --accent: #0F6B4C;
+    --accent-soft: #E8F1EC;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans Condensed", "Inter Tight", system-ui, sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background: var(--paper-edge);
+    color: var(--ink);
+    font-family: var(--serif);
+    margin: 0;
+    padding: 40px 16px 64px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .noprint{ }
+  @media print{
+    body{ background:#fff; padding:0; }
+    .noprint{ display:none !important; }
+    .sheet{ box-shadow:none !important; margin:0 !important; max-width:none !important; }
+  }
+
+  .toolbar{
+    max-width: 720px;
+    margin: 0 auto 18px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .print-btn{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 8px 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+  .print-btn:hover{ border-color: var(--accent); }
+  .print-btn svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; }
+
+  .sheet{
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--paper);
+    box-shadow: 0 1px 2px rgba(28,36,32,0.06), 0 12px 32px rgba(28,36,32,0.10);
+    padding: 56px 64px 60px;
+    position: relative;
+  }
+  .sheet::before{
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 5px;
+    background: var(--accent);
+  }
+
+  header.letterhead{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .system-name{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+  .system-name .full{
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    letter-spacing: 0;
+  }
+  .letterhead-meta{
+    text-align: right;
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    line-height: 1.6;
+  }
+
+  .dateline{
+    font-size: 14.5px;
+    color: var(--ink-muted);
+    margin-bottom: 26px;
+  }
+  .dateline .fill{
+    border-bottom: 1px solid var(--ink-faint);
+    padding: 0 2px;
+    color: var(--ink);
+  }
+
+  .addressee{
+    font-size: 15px;
+    line-height: 1.55;
+    margin-bottom: 26px;
+  }
+  .addressee .fill{ border-bottom: 1px solid var(--ink-faint); padding: 0 2px; }
+  .addressee .line{ display:block; }
+
+  .subject{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 26px;
+  }
+  .subject span{
+    color: var(--ink);
+    text-transform: none;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 15.5px;
+    letter-spacing: 0;
+    margin-left: 8px;
+  }
+
+  .salutation{ font-size: 15.5px; margin-bottom: 18px; }
+  .salutation .fill{ border-bottom: 1px solid var(--ink-faint); padding: 0 2px; }
+
+  .body-text p{
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--ink);
+    margin: 0 0 18px;
+    max-width: 62ch;
+    text-wrap: pretty;
+  }
+  .body-text strong{ font-weight: 600; color: var(--ink); }
+
+  .closing{ margin-top: 30px; }
+  .closing p{ font-size: 15.5px; margin: 0 0 4px; }
+  .signature-block{ margin-top: 54px; }
+  .signature-line{
+    width: 260px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 6px;
+  }
+  .signature-fill{ font-size: 15px; color: var(--ink); }
+  .signature-role{
+    font-family: var(--sans);
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 3px;
+  }
+
+  footer.pagefoot{
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 560px){
+    .sheet{ padding: 40px 24px 40px; }
+    header.letterhead{ flex-direction: column; align-items: flex-start; }
+    .letterhead-meta{ text-align: left; }
+  }
+</style>
+
+<div class="toolbar noprint">
+  <button class="print-btn" onclick="window.print()">
+    <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+    Print / Save as PDF
+  </button>
+</div>
+
+<div class="sheet">
+  <header class="letterhead">
+    <div class="system-name">
+      VUCRMS
+      <span class="full">Vigan Unified Central Record Management System</span>
+    </div>
+    <div class="letterhead-meta">
+      City Government of Vigan<br>
+      Ilocos Sur
+    </div>
+  </header>
+
+  <div class="dateline"><span class="fill">&nbsp;[ Date ]&nbsp;</span></div>
+
+  <div class="addressee">
+    <span class="line"><span class="fill">&nbsp;[ Recipient Name ]&nbsp;</span></span>
+    <span class="line"><span class="fill">&nbsp;[ Position / Office ]&nbsp;</span></span>
+    <span class="line">City Government of Vigan</span>
+  </div>
+
+  <div class="subject">Re:<span>Proposal to Adopt the Vigan Unified Central Record Management System (VUCRMS)</span></div>
+
+  <div class="salutation">Dear <span class="fill">&nbsp;[ Recipient Name / Sir or Madam ]&nbsp;</span>,</div>
+
+  <div class="body-text">
+    <p>I am writing to formally propose the adoption of the <strong>Vigan Unified Central Record Management System (VUCRMS)</strong>, a digital records platform designed to serve every office of the City government &mdash; not only those that register residents. Each office defines its own record types on one shared system: a Social Welfare caseload, a Civil Registry entry, a property assessment, a business permit, a farm registration &mdash; whatever that office needs to keep track of, in a form built for its own work.</p>
+
+    <p>At present, each office keeps its own records independently, often on paper or in separate spreadsheets, with no shared way to confirm information across offices. For offices that deal with residents directly, this also risks the same person being recorded more than once under slightly different details. For every office, it leaves the City without a reliable, consolidated view of its own records for planning and reporting.</p>
+
+    <p>For offices whose work involves residents &mdash; such as the City Social Welfare and Development Office or the City Civil Registry &mdash; VUCRMS recognizes a person automatically wherever their record is needed again, flagging possible duplicate entries for staff review before anything is saved, and can track household composition to support programs such as those under the Solo Parent Welfare Act. For every office, whether or not its records involve a resident&rsquo;s identity, the system gives it its own secured space to record and manage its own data, with every change logged for accountability in keeping with the Data Privacy Act of 2012 (RA 10173). Built-in dashboards let City officials view activity across every participating office at a glance &mdash; turning day-to-day records into information the City can plan with.</p>
+
+    <p>As your office&rsquo;s space within VUCRMS is being prepared, I respectfully request that you provide a sample of the records your office currently maintains &mdash; in whatever form they are presently kept, whether spreadsheet, form, or paper listing &mdash; so that they may be reviewed and used to set up your office&rsquo;s records correctly ahead of the system&rsquo;s rollout. Your office&rsquo;s cooperation at this early step will help ensure VUCRMS is built around the records you already manage.</p>
+
+    <p>Thank you for your time and consideration.</p>
+  </div>
+
+  <div class="closing">
+    <p>Respectfully yours,</p>
+  </div>
+
+  <div class="signature-block">
+    <div class="signature-line"></div>
+    <div class="signature-fill">[ Sender Name ]</div>
+    <div class="signature-role">[ Position / Office ]</div>
+  </div>
+
+  <footer class="pagefoot">
+    <span>VUCRMS &middot; Vigan Unified Central Record Management System</span>
+    <span>Internal use &middot; RA 10173 compliant</span>
+  </footer>
+</div>
