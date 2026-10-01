@@ -511,3 +511,13 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
   .dl-print-box { width: 48pt; }
   @page { margin: 12mm; }
 }
+
+/* ---------- Business renewals ---------- */
+.br-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.br-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(60px, 1fr) 56px; gap: 12px; align-items: center; width: 100%; padding: 7px 8px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--t-base); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.br-row:hover:not(:disabled) { background: var(--bg-hover); }
+.br-row:disabled { cursor: default; }
+.br-row > strong { text-align: right; font-variant-numeric: tabular-nums; }
+.br-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.br-kpi-btn { text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.br-kpi-btn:hover { border-color: var(--t-light); }

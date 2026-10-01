@@ -11,6 +11,7 @@ import {
   CATEGORIES, listVulnerable, summarize, usesSampleData as disasterUsesSample,
   type Category, type DisasterFilters, type VulnerablePerson,
 } from '../services/disasterLists';
+import { BUSINESS_PERMITS_SLUG, listRenewals, summarizeRenewals, type RenewalBusiness, type RenewalFilters } from '../services/businessRenewals';
 import { countGap, listGapPeople, toGapRule, usesSampleData as gapUsesSample, type GapPerson, type GapRule } from '../services/programGaps';
 
 // Program gaps and disaster lists, shared by the admin routes (whole city)
@@ -112,19 +113,25 @@ export const gapCsv: RequestHandler = asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------- disaster lists
 
-// The office that runs Evacuees (CDRRMO) sees disaster lists; admin always.
+// A list belongs to the office that runs a given program: disaster lists to
+// the office that runs Evacuees (CDRRMO), business renewals to the office
+// that runs Business Permits (BPLO). Admin always passes.
 export const EVACUEES_SLUG = 'evacuees';
-export async function officeRunsEvacuees(client: PrismaClient, officeId: string): Promise<boolean> {
-  return (await client.officeModule.count({ where: { officeId, slug: EVACUEES_SLUG } })) > 0;
+export async function officeRunsModule(client: PrismaClient, officeId: string, slug: string): Promise<boolean> {
+  return (await client.officeModule.count({ where: { officeId, slug } })) > 0;
 }
-export const requireDisasterAccess: RequestHandler = asyncHandler(async (req, res, next) => {
-  const officeId = officeOf(req);
-  if (officeId && !(await officeRunsEvacuees(clientFor(req), officeId))) {
-    sendError(res, 403, 'FORBIDDEN', 'Disaster lists are for the office that runs Evacuees');
-    return;
-  }
-  next();
-});
+function requireRunsModule(slug: string, message: string): RequestHandler {
+  return asyncHandler(async (req, res, next) => {
+    const officeId = officeOf(req);
+    if (officeId && !(await officeRunsModule(clientFor(req), officeId, slug))) {
+      sendError(res, 403, 'FORBIDDEN', message);
+      return;
+    }
+    next();
+  });
+}
+export const requireDisasterAccess = requireRunsModule(EVACUEES_SLUG, 'Disaster lists are for the office that runs Evacuees');
+export const requireRenewalsAccess = requireRunsModule(BUSINESS_PERMITS_SLUG, 'Business renewals are for the office that runs Business Permits');
 
 const DISASTER_PAGE_SIZE = 50;
 const PRINT_LIMIT = 5000;
@@ -179,5 +186,52 @@ export const disasterCsv: RequestHandler = asyncHandler(async (req, res) => {
       p.needs.map((n) => (n === 'pregnant' && p.pregnancyNeedsCheck ? 'Pregnant (check record)' : NEED_LABEL[n])).join('; '),
       p.evacuationCenter,
     ]),
+  );
+});
+
+// ---------------------------------------------------------------- business renewals
+
+const RENEWAL_PAGE_SIZE = 50;
+
+function renewalFilters(req: Request): RenewalFilters | null {
+  const str = (k: string) => (typeof req.query[k] === 'string' && req.query[k] ? (req.query[k] as string) : undefined);
+  const rawYear = str('lastYear');
+  let lastYear: RenewalFilters['lastYear'];
+  if (rawYear === 'none') lastYear = 'none';
+  else if (rawYear !== undefined) {
+    if (!/^\d{4}$/.test(rawYear)) return null;
+    lastYear = Number(rawYear);
+  }
+  const q = str('q');
+  return { lastYear, barangay: str('barangay'), line: str('line'), statusCode: str('statusCode'), q: q && q.length <= 100 ? q : undefined };
+}
+const auditRenewals = (req: Request, view: string, f: RenewalFilters, rows: number) =>
+  audit(req, 'office_record', null, { view: `business-renewals:${view}`, filters: f, rows });
+
+export const renewalsSummary: RequestHandler = asyncHandler(async (req, res) => {
+  res.json(await summarizeRenewals(clientFor(req)));
+});
+
+export const renewalsList: RequestHandler = asyncHandler(async (req, res) => {
+  const f = renewalFilters(req);
+  if (!f) { sendError(res, 400, 'VALIDATION_ERROR', 'lastYear must be a year or "none"'); return; }
+  const page = parsePage(req.query.page);
+  const { total, items } = await listRenewals(clientFor(req), f, { limit: RENEWAL_PAGE_SIZE, offset: (page - 1) * RENEWAL_PAGE_SIZE });
+  await auditRenewals(req, 'list', f, items.length);
+  const body: Paginated<RenewalBusiness> = { items, total, page, pageSize: RENEWAL_PAGE_SIZE };
+  res.json(body);
+});
+
+export const renewalsCsv: RequestHandler = asyncHandler(async (req, res) => {
+  const f = renewalFilters(req);
+  if (!f) { sendError(res, 400, 'VALIDATION_ERROR', 'lastYear must be a year or "none"'); return; }
+  const { items } = await listRenewals(clientFor(req), f, null);
+  await auditRenewals(req, 'export', f, items.length);
+  const scope = [f.lastYear === 'none' ? 'no-permit-year' : f.lastYear ? `last-permit-${f.lastYear}` : 'all', f.barangay].filter(Boolean).join('-');
+  sendCsv(
+    res,
+    `business-renewals-${scope.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${new Date().toISOString().slice(0, 10)}.csv`,
+    ['Business name', 'Trade name', 'TAN', 'Line of business', 'Barangay', 'Last permit year', 'Valid until', 'Permit no.', 'BPLS status code'],
+    items.map((b) => [b.businessName, b.tradeName, b.tan, b.line, b.barangay, b.lastYear, b.validUntil, b.permitNo, b.statusCode]),
   );
 });

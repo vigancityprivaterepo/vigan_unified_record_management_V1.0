@@ -23,6 +23,7 @@ import { DynamicOfficeRecordsPage } from '@/pages/DynamicOfficeRecordsPage';
 import { HouseholdsPage } from '@/pages/HouseholdsPage';
 import { ProgramGapsPage } from '@/pages/ProgramGapsPage';
 import { DisasterListsPage } from '@/pages/DisasterListsPage';
+import { BusinessRenewalsPage } from '@/pages/BusinessRenewalsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { OfficeHomePage } from '@/pages/OfficeHomePage';
 import { OfficeWorkspacesPage } from '@/pages/OfficeWorkspacesPage';
@@ -45,6 +46,7 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   households: HouseholdsPage,
   gaps: () => <ProgramGapsPage />,
   disaster: () => <DisasterListsPage />,
+  renewals: () => <BusinessRenewalsPage />,
   queue: DuplicateReviewQueuePage,
   workspaces: OfficeWorkspacesPage,
   'offices:create': CreateOfficePage,
@@ -73,7 +75,7 @@ export default function App() {
   const [office, setOffice] = useState<Office | null>(null);
   const [modules, setModules] = useState<OfficeModule[] | null>(null);
   // Shared lists this office sees (Program gaps, Disaster lists), for the sidebar.
-  const [officeLists, setOfficeLists] = useState<{ programGaps: number; disasterLists: boolean } | null>(null);
+  const [officeLists, setOfficeLists] = useState<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean } | null>(null);
   const [counts, setCounts] = useState<Record<string, number | undefined>>({});
   const [offices, setOffices] = useState<Office[]>([]);
   const [queueCount, setQueueCount] = useState(0);
@@ -145,11 +147,12 @@ export default function App() {
     const [kind, moduleId] = activeTab.split(':');
     const activeModule = modules?.find((m) => m.id === moduleId) ?? null;
     const officeName = office?.name ?? 'Office';
-    crumbs = [office ? shortName(office.name) : 'Office', ...(activeModule ? [activeModule.name] : []), kind === 'home' ? 'Home' : kind === 'charts' ? 'Charts' : kind === 'gaps' ? 'Program gaps' : kind === 'disaster' ? 'Disaster lists' : kind === 'intake' ? 'New registration' : 'Records'];
+    crumbs = [office ? shortName(office.name) : 'Office', ...(activeModule ? [activeModule.name] : []), kind === 'home' ? 'Home' : kind === 'charts' ? 'Charts' : kind === 'gaps' ? 'Program gaps' : kind === 'disaster' ? 'Disaster lists' : kind === 'renewals' ? 'Business renewals' : kind === 'intake' ? 'New registration' : 'Records'];
     if (officeLoadError != null) pageElement = <LoadError what="your office's programs" error={officeLoadError} onRetry={() => setOfficeAttempt((n) => n + 1)} />;
     else if (!modules) pageElement = <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}><span className="spinner" /></div>;
     else if (kind === 'gaps') pageElement = <ProgramGapsPage officeId={officeId} />;
     else if (kind === 'disaster') pageElement = <DisasterListsPage officeId={officeId} />;
+    else if (kind === 'renewals') pageElement = <BusinessRenewalsPage officeId={officeId} />;
     else if (kind === 'charts') {
       // Office staff's own charts: their office's programs only.
       pageElement = office ? (

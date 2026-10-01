@@ -4,7 +4,7 @@ import type { Office, OfficeModule } from '@/lib/api';
 import { officeAppearance, officeColor } from '@/lib/officeTheme';
 import { adminShortName } from '@/lib/shortNames';
 
-export type OfficeTab = 'home' | 'charts' | 'gaps' | 'disaster' | `intake:${string}` | `records:${string}`;
+export type OfficeTab = 'home' | 'charts' | 'gaps' | 'disaster' | 'renewals' | `intake:${string}` | `records:${string}`;
 
 // Scoped navigation for one office: its identity at the top, then one
 // "New registration" + "Records" pair per module. Nothing from other offices
@@ -24,7 +24,7 @@ export function OfficeSidebar({
   onSelect: (tab: OfficeTab) => void;
   counts: Record<string, number | undefined>;
   // Which shared lists this office sees (GET /offices/:id/lists).
-  lists?: { programGaps: number; disasterLists: boolean } | null;
+  lists?: { programGaps: number; disasterLists: boolean; businessRenewals?: boolean } | null;
   footer: React.ReactNode;
 }) {
   const { icon } = officeAppearance(office);
@@ -52,6 +52,7 @@ export function OfficeSidebar({
         <NavButton active={activeTab === 'charts'} icon="viz" label="Charts" onClick={() => onSelect('charts')} />
         {!!lists?.programGaps && <NavButton active={activeTab === 'gaps'} icon="target" label="Program gaps" onClick={() => onSelect('gaps')} />}
         {lists?.disasterLists && <NavButton active={activeTab === 'disaster'} icon="alert" label="Disaster lists" onClick={() => onSelect('disaster')} />}
+        {lists?.businessRenewals && <NavButton active={activeTab === 'renewals'} icon="store" label="Business renewals" onClick={() => onSelect('renewals')} />}
         {modules.map((m) => (
           <div key={m.id}>
             <div className="nav-label">{m.name}</div>

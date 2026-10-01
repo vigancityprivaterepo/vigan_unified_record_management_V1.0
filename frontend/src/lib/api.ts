@@ -543,6 +543,20 @@ export type VulnerablePerson = {
   householdKey: string; householdHead: string | null; needs: DisasterCategory[]; pregnancyNeedsCheck: boolean; evacuationCenter: string | null;
 };
 
+// Business renewals (BPLO): see backend/src/services/businessRenewals.ts.
+export type RenewalSummary = {
+  year: number; total: number; renewed: number; notRenewed: number; lapsedLonger: number; noYear: number;
+  byYear: Array<{ year: number | null; count: number }>;
+  byStatusCode: Array<{ code: string | null; count: number; renewed: number }>;
+  notRenewedByBarangay: Array<{ name: string | null; count: number }>;
+  notRenewedByLine: Array<{ name: string | null; count: number }>;
+};
+export type RenewalBusiness = {
+  recordId: string; businessName: string | null; tradeName: string | null; tan: string | null; line: string | null;
+  barangay: string | null; lastYear: number | null; validUntil: string | null; permitNo: string | null; statusCode: string | null;
+};
+export type RenewalFilters = { lastYear?: number | 'none'; barangay?: string; line?: string; statusCode?: string; q?: string };
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -601,7 +615,12 @@ export const api = {
   exportMasterlist: () => download('/admin/citizens/export.csv', 'citizen-masterlist.csv'),
   // Program gaps and disaster lists: officeId set = that office's own view
   // (/offices/:id/...), unset = admin's whole-city view (/admin/...).
-  officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean }>(`/offices/${officeId}/lists`),
+  officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),
+  renewalSummary: (officeId?: string) => request<RenewalSummary>(`${listBase(officeId)}/business-renewals`),
+  renewalList: (officeId: string | undefined, page: number, f: RenewalFilters) =>
+    request<Paginated<RenewalBusiness>>(`${listBase(officeId)}/business-renewals/list${queryString({ page, ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`),
+  exportRenewals: (officeId: string | undefined, f: RenewalFilters) =>
+    download(`${listBase(officeId)}/business-renewals/list.csv${queryString({ ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`, 'business-renewals.csv'),
   disasterSummary: (officeId?: string) =>
     request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean }>(`${listBase(officeId)}/disaster-lists`),
   disasterPeople: (officeId: string | undefined, page: number, barangayCode?: string, category?: DisasterCategory) =>

@@ -48,10 +48,10 @@ describe('office lists (/offices/:officeId/program-gaps, /disaster-lists)', () =
   it('gives disaster lists only to the office that runs Evacuees', async () => {
     const cswdAgent = await loginAgent(app, 'cswd.demo');
     expect((await cswdAgent.get(`/offices/${cswd.id}/disaster-lists`)).status).toBe(403);
-    expect((await cswdAgent.get(`/offices/${cswd.id}/lists`)).body).toEqual({ programGaps: 1, disasterLists: false });
+    expect((await cswdAgent.get(`/offices/${cswd.id}/lists`)).body).toEqual({ programGaps: 1, disasterLists: false, businessRenewals: false });
 
     const agriAgent = await loginAgent(app, 'agri.demo');
-    expect((await agriAgent.get(`/offices/${agri.id}/lists`)).body).toEqual({ programGaps: 1, disasterLists: true });
+    expect((await agriAgent.get(`/offices/${agri.id}/lists`)).body).toEqual({ programGaps: 1, disasterLists: true, businessRenewals: false });
     expect((await agriAgent.get(`/offices/${agri.id}/disaster-lists`)).status).toBe(200);
     expect((await agriAgent.get(`/offices/${agri.id}/disaster-lists/people`)).status).toBe(200);
   });

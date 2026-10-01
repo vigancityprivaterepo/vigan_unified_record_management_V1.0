@@ -7,6 +7,7 @@ import { sendError } from './lib/errors';
 import { createSessionMiddleware } from './lib/session';
 import { adminDashboardRouter } from './routes/adminDashboard';
 import { officeWidgetsRouter } from './routes/officeWidgets';
+import { adminBusinessRenewalsRouter } from './routes/adminBusinessRenewals';
 import { adminDashboardWidgetsRouter } from './routes/adminDashboardWidgets';
 import { adminDisasterListsRouter } from './routes/adminDisasterLists';
 import { adminInsightsRouter } from './routes/adminInsights';
@@ -54,6 +55,7 @@ export function createApp(options?: {
   app.use('/admin/insights', adminInsightsRouter);
   app.use('/admin/program-gaps', adminProgramGapsRouter);
   app.use('/admin/disaster-lists', adminDisasterListsRouter);
+  app.use('/admin/business-renewals', adminBusinessRenewalsRouter);
   app.use('/admin', adminDashboardRouter);
 
   // multer's file-size-limit and fileFilter rejections arrive here (they
