@@ -1,26 +1,18 @@
-import { Router, type Request } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../lib/asyncHandler';
 import { insertAuditLog } from '../lib/auditLog';
-import { sendCsv } from '../lib/csv';
 import { sendError } from '../lib/errors';
-import { parsePage, type Paginated } from '../lib/pagination';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
-import { countGap, listGapPeople, toGapRule, usesSampleData, type GapPerson, type GapRule } from '../services/programGaps';
+import { toGapRule, type GapRule } from '../services/programGaps';
+import { gapCsv, gapPeople, gapSummary } from './listHandlers';
 
-// Program gaps (see services/programGaps.ts). Admin only: the rules read
-// across every office's records. Viewing or exporting a people list is
-// audit-logged, since it shows who is (or isn't) in which program.
+// Program gaps (see services/programGaps.ts), admin side: every rule, plus
+// creating and editing rules. The read endpoints are shared with offices
+// (routes/listHandlers.ts, routes/officeLists.ts).
 export const adminProgramGapsRouter = Router();
 adminProgramGapsRouter.use(requireRole('admin'));
-
-const PAGE_SIZE = 25;
-
-function filtersOf(req: Request) {
-  const code = typeof req.query.barangayCode === 'string' && req.query.barangayCode ? req.query.barangayCode : undefined;
-  return { barangayCode: code };
-}
 
 async function loadRule(id: string | undefined): Promise<GapRule | null> {
   if (!id || !z.string().uuid().safeParse(id).success) return null;
@@ -28,93 +20,9 @@ async function loadRule(id: string | undefined): Promise<GapRule | null> {
   return row ? toGapRule(row) : null;
 }
 
-adminProgramGapsRouter.get(
-  '/',
-  asyncHandler(async (req, res) => {
-    const client = getPrismaForRole('admin');
-    const filters = filtersOf(req);
-    const [rows, modules] = await Promise.all([
-      client.programGapRule.findMany({ orderBy: [{ kind: 'desc' }, { createdAt: 'asc' }] }),
-      client.officeModule.findMany({
-        select: { id: true, name: true, office: { select: { id: true, name: true, shortName: true, accentHue: true, icon: true, isActive: true } } },
-        orderBy: [{ office: { name: 'asc' } }, { sortOrder: 'asc' }],
-      }),
-    ]);
-    const moduleById = new Map(modules.map((m) => [m.id, m]));
-    const rules = await Promise.all(
-      rows.map(async (row) => {
-        const rule = toGapRule(row);
-        const [count, sample] = rule.isActive
-          ? await Promise.all([countGap(client, rule, filters), usesSampleData(client, rule)])
-          : [null, false];
-        const target = moduleById.get(rule.targetModuleId);
-        return {
-          ...rule,
-          targetProgram: target ? { id: target.id, name: target.name, office: target.office } : null,
-          sourcePrograms: rule.sourceModuleIds.map((id) => moduleById.get(id)?.name ?? 'Removed program'),
-          total: count?.total ?? null,
-          byBarangay: count?.byBarangay.slice(0, 5) ?? [],
-          usesSampleData: sample,
-        };
-      }),
-    );
-    res.json({
-      rules,
-      programs: modules.filter((m) => m.office.isActive).map((m) => ({ id: m.id, name: m.name, officeName: m.office.shortName || m.office.name })),
-    });
-  }),
-);
-
-adminProgramGapsRouter.get(
-  '/:id/people',
-  asyncHandler(async (req, res) => {
-    const rule = await loadRule(req.params.id);
-    if (!rule) { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
-    const client = getPrismaForRole('admin');
-    const filters = filtersOf(req);
-    const page = parsePage(req.query.page);
-    const [{ total }, items] = await Promise.all([
-      countGap(client, rule, filters),
-      listGapPeople(client, rule, filters, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
-    ]);
-    await insertAuditLog(client, {
-      tableName: 'program_gap_rule',
-      recordId: rule.id,
-      action: 'read',
-      actorUserId: req.session.userId,
-      actorRole: req.session.role,
-      changedFields: { view: 'people', page, barangayCode: filters.barangayCode ?? null, rows: items.length },
-    });
-    const body: Paginated<GapPerson> = { items, total, page, pageSize: PAGE_SIZE };
-    res.json(body);
-  }),
-);
-
-adminProgramGapsRouter.get(
-  '/:id/people.csv',
-  asyncHandler(async (req, res) => {
-    const rule = await loadRule(req.params.id);
-    if (!rule) { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
-    const client = getPrismaForRole('admin');
-    const filters = filtersOf(req);
-    const people = await listGapPeople(client, rule, filters, null);
-    await insertAuditLog(client, {
-      tableName: 'program_gap_rule',
-      recordId: rule.id,
-      action: 'read',
-      actorUserId: req.session.userId,
-      actorRole: req.session.role,
-      changedFields: { view: 'export', barangayCode: filters.barangayCode ?? null, rows: people.length },
-    });
-    const date = new Date().toISOString().slice(0, 10);
-    sendCsv(
-      res,
-      `program-gap-${rule.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${date}.csv`,
-      ['Name', 'Age', 'Sex', 'Barangay', 'In program(s)', 'Rule'],
-      people.map((p) => [p.name, p.age, p.sex, p.barangay, p.sourcePrograms.join('; '), rule.name]),
-    );
-  }),
-);
+adminProgramGapsRouter.get('/', gapSummary);
+adminProgramGapsRouter.get('/:ruleId/people', gapPeople);
+adminProgramGapsRouter.get('/:ruleId/people.csv', gapCsv);
 
 const ruleSchema = z
   .object({

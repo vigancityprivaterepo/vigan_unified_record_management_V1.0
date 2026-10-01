@@ -13,7 +13,9 @@ type Program = { id: string; name: string; officeName: string };
 // served"), and who is on a list they shouldn't be on ("Needs cleanup").
 // Rules live in program_gap_rule and are computed live by the backend each
 // time this page loads. Nothing here changes a record.
-export function ProgramGapsPage() {
+// officeId set = an office's own view: only rules that target its programs,
+// read-only (admin manages rules).
+export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
   const [data, setData] = useState<{ rules: GapRuleSummary[]; programs: Program[] } | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
@@ -27,8 +29,8 @@ export function ProgramGapsPage() {
   }, []);
   useEffect(() => {
     setLoadError(null);
-    api.programGaps(barangayCode || undefined).then(setData).catch((err) => { setData(null); setLoadError(err); });
-  }, [barangayCode, attempt]);
+    api.programGaps(officeId, barangayCode || undefined).then(setData).catch((err) => { setData(null); setLoadError(err); });
+  }, [officeId, barangayCode, attempt]);
 
   const reload = () => setAttempt((n) => n + 1);
   const active = data?.rules.filter((r) => r.isActive) ?? [];
@@ -42,16 +44,20 @@ export function ProgramGapsPage() {
         <div className="grow">
           <h1>Program gaps</h1>
           <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 720 }}>
-            People who qualify for a program but are not on it yet, and lists that need cleanup. Worked out from the shared registry each time you open this page; nothing is changed automatically.
+            {officeId
+              ? 'People who qualify for your programs but are not on them yet, and your lists that need cleanup. Worked out from the shared registry each time you open this page; nothing is changed automatically. The city administrator sets the rules.'
+              : 'People who qualify for a program but are not on it yet, and lists that need cleanup. Worked out from the shared registry each time you open this page; nothing is changed automatically.'}
           </p>
         </div>
         <select className="select" style={{ width: 'auto', minWidth: 200 }} aria-label="Filter by barangay" value={barangayCode} onChange={(e) => setBarangayCode(e.target.value)}>
           <option value="">All barangays</option>
           {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
         </select>
-        <button type="button" className="btn btn--ghost btn--lg" onClick={() => setManaging(true)}>
-          <Icon name="sliders" size={16} /> Manage rules
-        </button>
+        {!officeId && (
+          <button type="button" className="btn btn--ghost btn--lg" onClick={() => setManaging(true)}>
+            <Icon name="sliders" size={16} /> Manage rules
+          </button>
+        )}
       </div>
 
       {loadError != null && <LoadError what="program gaps" error={loadError} onRetry={reload} />}
@@ -63,20 +69,20 @@ export function ProgramGapsPage() {
             title="Not yet served"
             sub="Citizens who match a program's conditions but have no record in it. Share the list with the office so they can reach out."
             rules={missing}
-            empty="No active rules of this kind. Add one under Manage rules."
+            empty={officeId ? 'No rules of this kind for your programs.' : 'No active rules of this kind. Add one under Manage rules.'}
             onOpen={setOpenRule}
           />
           <GapSection
             title="Needs cleanup"
             sub="People who are still on a list they should no longer be on. Check these before the next payout or report."
             rules={conflict}
-            empty="No active cleanup rules."
+            empty={officeId ? 'No cleanup rules for your programs.' : 'No active cleanup rules.'}
             onOpen={setOpenRule}
           />
         </>
       )}
 
-      {openRule && <GapPeopleModal rule={openRule} barangayCode={barangayCode} barangayName={barangayName} onClose={() => setOpenRule(null)} />}
+      {openRule && <GapPeopleModal officeId={officeId} rule={openRule} barangayCode={barangayCode} barangayName={barangayName} onClose={() => setOpenRule(null)} />}
       {managing && data && <ManageRulesModal rules={data.rules} programs={data.programs} onChanged={reload} onClose={() => setManaging(false)} />}
     </div>
   );
@@ -128,8 +134,8 @@ function describeRule(r: Pick<GapRuleSummary, 'kind' | 'minAge' | 'maxAge' | 'se
   return `Citizens ${who.join(', ') || 'in the registry'} who are ${r.kind === 'missing' ? 'not' : 'still'} in ${target}.`;
 }
 
-function GapPeopleModal({ rule, barangayCode, barangayName, onClose }: {
-  rule: GapRuleSummary; barangayCode: string; barangayName?: string; onClose: () => void;
+function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }: {
+  officeId?: string; rule: GapRuleSummary; barangayCode: string; barangayName?: string; onClose: () => void;
 }) {
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paginated<GapPerson> | null>(null);
@@ -140,14 +146,14 @@ function GapPeopleModal({ rule, barangayCode, barangayName, onClose }: {
 
   useEffect(() => {
     setError(null);
-    api.programGapPeople(rule.id, page, barangayCode || undefined).then(setResult).catch((err) => { setResult(null); setError(err); });
-  }, [rule.id, page, barangayCode, attempt]);
+    api.programGapPeople(officeId, rule.id, page, barangayCode || undefined).then(setResult).catch((err) => { setResult(null); setError(err); });
+  }, [officeId, rule.id, page, barangayCode, attempt]);
 
   async function handleExport() {
     setExporting(true);
     setExportError(null);
     try {
-      await api.exportProgramGap(rule.id, barangayCode || undefined);
+      await api.exportProgramGap(officeId, rule.id, barangayCode || undefined);
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     } finally {
@@ -196,7 +202,7 @@ function GapPeopleModal({ rule, barangayCode, barangayName, onClose }: {
         )}
         {result && <Pagination page={result.page} pageSize={result.pageSize} total={result.total} onPageChange={setPage} />}
         <p style={{ margin: 0, fontSize: 13, color: 'var(--t-muted)' }}>
-          Opening and exporting this list is recorded in the audit log. Share it only with the office that runs the program.
+          Opening and exporting this list is recorded in the audit log. Use it only to reach these people for this program.
         </p>
       </div>
     </Modal>

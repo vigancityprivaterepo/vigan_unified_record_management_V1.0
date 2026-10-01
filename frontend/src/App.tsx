@@ -43,8 +43,8 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   'visualizations:list': AllVisualizationsPage,
   citizens: CitizensPage,
   households: HouseholdsPage,
-  gaps: ProgramGapsPage,
-  disaster: DisasterListsPage,
+  gaps: () => <ProgramGapsPage />,
+  disaster: () => <DisasterListsPage />,
   queue: DuplicateReviewQueuePage,
   workspaces: OfficeWorkspacesPage,
   'offices:create': CreateOfficePage,
@@ -72,6 +72,8 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [office, setOffice] = useState<Office | null>(null);
   const [modules, setModules] = useState<OfficeModule[] | null>(null);
+  // Shared lists this office sees (Program gaps, Disaster lists), for the sidebar.
+  const [officeLists, setOfficeLists] = useState<{ programGaps: number; disasterLists: boolean } | null>(null);
   const [counts, setCounts] = useState<Record<string, number | undefined>>({});
   const [offices, setOffices] = useState<Office[]>([]);
   const [queueCount, setQueueCount] = useState(0);
@@ -95,6 +97,7 @@ export default function App() {
     const officeId = session.officeId;
     setOfficeLoadError(null);
     api.getOffice(officeId).then(setOffice).catch(() => setOffice(null));
+    api.officeLists(officeId).then(setOfficeLists).catch(() => setOfficeLists(null));
     api.getOfficeModules(officeId).then((ms) => {
       setModules(ms);
       // First page is enough -- we only need `total` for the sidebar counts.
@@ -142,9 +145,11 @@ export default function App() {
     const [kind, moduleId] = activeTab.split(':');
     const activeModule = modules?.find((m) => m.id === moduleId) ?? null;
     const officeName = office?.name ?? 'Office';
-    crumbs = [office ? shortName(office.name) : 'Office', ...(activeModule ? [activeModule.name] : []), kind === 'home' ? 'Home' : kind === 'charts' ? 'Charts' : kind === 'intake' ? 'New registration' : 'Records'];
+    crumbs = [office ? shortName(office.name) : 'Office', ...(activeModule ? [activeModule.name] : []), kind === 'home' ? 'Home' : kind === 'charts' ? 'Charts' : kind === 'gaps' ? 'Program gaps' : kind === 'disaster' ? 'Disaster lists' : kind === 'intake' ? 'New registration' : 'Records'];
     if (officeLoadError != null) pageElement = <LoadError what="your office's programs" error={officeLoadError} onRetry={() => setOfficeAttempt((n) => n + 1)} />;
     else if (!modules) pageElement = <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}><span className="spinner" /></div>;
+    else if (kind === 'gaps') pageElement = <ProgramGapsPage officeId={officeId} />;
+    else if (kind === 'disaster') pageElement = <DisasterListsPage officeId={officeId} />;
     else if (kind === 'charts') {
       // Office staff's own charts: their office's programs only.
       pageElement = office ? (
@@ -205,7 +210,7 @@ export default function App() {
     <div className={MONOCHROME ? 'shell ws-mono' : 'shell'} data-workspace={isOfficeStaff ? office?.slug ?? 'office' : viewedOffice ? viewedOffice.slug : 'admin'} style={{ '--hue': hue } as React.CSSProperties}>
       <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />
       {isOfficeStaff ? (
-        <OfficeSidebar office={office} modules={modules ?? []} activeTab={activeTab as OfficeTab} onSelect={selectTab} counts={counts} footer={userCard} />
+        <OfficeSidebar office={office} modules={modules ?? []} activeTab={activeTab as OfficeTab} onSelect={selectTab} counts={counts} lists={officeLists} footer={userCard} />
       ) : (
         <AdminSidebar activeTab={activeTab as AdminTab} onSelect={selectTab} offices={offices} queueCount={queueCount} footer={userCard} />
       )}

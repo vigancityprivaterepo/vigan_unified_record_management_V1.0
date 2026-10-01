@@ -18,6 +18,7 @@ import { adminUsersRouter } from './routes/adminUsers';
 import { createAuthRouter, type LoginRateLimitOptions } from './routes/auth';
 import { barangaysRouter } from './routes/barangays';
 import { officeRouter } from './routes/office';
+import { officeListsRouter } from './routes/officeLists';
 
 // Factory rather than a module-level app instance so tests can build an app
 // with a short session idle timeout without touching global env state.
@@ -43,6 +44,7 @@ export function createApp(options?: {
   app.use('/auth', createAuthRouter({ loginRateLimit: options?.loginRateLimit }));
   app.use('/barangays', barangaysRouter);
   app.use('/offices', officeWidgetsRouter);
+  app.use('/offices', officeListsRouter);
   app.use('/offices', officeRouter);
   app.use('/admin/duplicate-review-queue', adminReviewRouter);
   app.use('/admin/staff-accounts', adminUsersRouter);

@@ -543,6 +543,8 @@ export type VulnerablePerson = {
   householdKey: string; householdHead: string | null; needs: DisasterCategory[]; pregnancyNeedsCheck: boolean; evacuationCenter: string | null;
 };
 
+const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
+
 export const api = {
   login: (username: string, password: string) =>
     request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -597,19 +599,23 @@ export const api = {
   exportModuleRecords: (officeId: string, moduleId: string) =>
     download(`/offices/${officeId}/modules/${moduleId}/records/export.csv`, 'records.csv'),
   exportMasterlist: () => download('/admin/citizens/export.csv', 'citizen-masterlist.csv'),
-  disasterSummary: () => request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean }>('/admin/disaster-lists'),
-  disasterPeople: (page: number, barangayCode?: string, category?: DisasterCategory) =>
-    request<Paginated<VulnerablePerson>>(`/admin/disaster-lists/people${queryString({ page, barangayCode, category })}`),
-  disasterPrint: (barangayCode: string) =>
-    request<{ total: number; items: VulnerablePerson[]; truncated: boolean }>(`/admin/disaster-lists/print${queryString({ barangayCode })}`),
-  exportDisasterList: (barangayCode?: string, category?: DisasterCategory) =>
-    download(`/admin/disaster-lists/people.csv${queryString({ barangayCode, category })}`, 'disaster-list.csv'),
-  programGaps: (barangayCode?: string) =>
-    request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`/admin/program-gaps${queryString({ barangayCode })}`),
-  programGapPeople: (ruleId: string, page: number, barangayCode?: string) =>
-    request<Paginated<GapPerson>>(`/admin/program-gaps/${ruleId}/people${queryString({ page, barangayCode })}`),
-  exportProgramGap: (ruleId: string, barangayCode?: string) =>
-    download(`/admin/program-gaps/${ruleId}/people.csv${queryString({ barangayCode })}`, 'program-gap.csv'),
+  // Program gaps and disaster lists: officeId set = that office's own view
+  // (/offices/:id/...), unset = admin's whole-city view (/admin/...).
+  officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean }>(`/offices/${officeId}/lists`),
+  disasterSummary: (officeId?: string) =>
+    request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean }>(`${listBase(officeId)}/disaster-lists`),
+  disasterPeople: (officeId: string | undefined, page: number, barangayCode?: string, category?: DisasterCategory) =>
+    request<Paginated<VulnerablePerson>>(`${listBase(officeId)}/disaster-lists/people${queryString({ page, barangayCode, category })}`),
+  disasterPrint: (officeId: string | undefined, barangayCode: string) =>
+    request<{ total: number; items: VulnerablePerson[]; truncated: boolean }>(`${listBase(officeId)}/disaster-lists/print${queryString({ barangayCode })}`),
+  exportDisasterList: (officeId: string | undefined, barangayCode?: string, category?: DisasterCategory) =>
+    download(`${listBase(officeId)}/disaster-lists/people.csv${queryString({ barangayCode, category })}`, 'disaster-list.csv'),
+  programGaps: (officeId: string | undefined, barangayCode?: string) =>
+    request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`${listBase(officeId)}/program-gaps${queryString({ barangayCode })}`),
+  programGapPeople: (officeId: string | undefined, ruleId: string, page: number, barangayCode?: string) =>
+    request<Paginated<GapPerson>>(`${listBase(officeId)}/program-gaps/${ruleId}/people${queryString({ page, barangayCode })}`),
+  exportProgramGap: (officeId: string | undefined, ruleId: string, barangayCode?: string) =>
+    download(`${listBase(officeId)}/program-gaps/${ruleId}/people.csv${queryString({ barangayCode })}`, 'program-gap.csv'),
   createProgramGapRule: (input: GapRuleInput) => request<GapRuleInput & { id: string }>('/admin/program-gaps', { method: 'POST', body: JSON.stringify(input) }),
   updateProgramGapRule: (id: string, input: Partial<GapRuleInput>) =>
     request<GapRuleInput & { id: string }>(`/admin/program-gaps/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),

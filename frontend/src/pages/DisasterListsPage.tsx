@@ -23,7 +23,8 @@ const needsText = (p: VulnerablePerson) =>
 
 type Scope = { code: string | null; name: string };
 
-export function DisasterListsPage() {
+// officeId set = the office that runs Evacuees (CDRRMO), whole city.
+export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
   const [data, setData] = useState<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean } | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
@@ -34,14 +35,14 @@ export function DisasterListsPage() {
 
   useEffect(() => {
     setError(null);
-    api.disasterSummary().then(setData).catch((err) => { setData(null); setError(err); });
-  }, [attempt]);
+    api.disasterSummary(officeId).then(setData).catch((err) => { setData(null); setError(err); });
+  }, [officeId, attempt]);
 
   async function exportAll() {
     setExporting(true);
     setExportError(null);
     try {
-      await api.exportDisasterList();
+      await api.exportDisasterList(officeId);
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     } finally {
@@ -135,13 +136,13 @@ export function DisasterListsPage() {
         </>
       )}
 
-      {scope && <PeopleModal scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
-      {printing?.code && <PrintSheet scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
+      {scope && <PeopleModal officeId={officeId} scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
+      {printing?.code && <PrintSheet officeId={officeId} scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
     </div>
   );
 }
 
-function PeopleModal({ scope, onPrint, onClose }: { scope: Scope; onPrint: () => void; onClose: () => void }) {
+function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string; scope: Scope; onPrint: () => void; onClose: () => void }) {
   const [category, setCategory] = useState<DisasterCategory | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paginated<VulnerablePerson> | null>(null);
@@ -151,8 +152,8 @@ function PeopleModal({ scope, onPrint, onClose }: { scope: Scope; onPrint: () =>
 
   useEffect(() => {
     setError(null);
-    api.disasterPeople(page, scope.code ?? undefined, category).then(setResult).catch((err) => { setResult(null); setError(err); });
-  }, [scope.code, category, page, attempt]);
+    api.disasterPeople(officeId, page, scope.code ?? undefined, category).then(setResult).catch((err) => { setResult(null); setError(err); });
+  }, [officeId, scope.code, category, page, attempt]);
 
   function pick(c: DisasterCategory | undefined) {
     setCategory(c);
@@ -162,7 +163,7 @@ function PeopleModal({ scope, onPrint, onClose }: { scope: Scope; onPrint: () =>
   async function exportCsv() {
     setExportError(null);
     try {
-      await api.exportDisasterList(scope.code ?? undefined, category);
+      await api.exportDisasterList(officeId, scope.code ?? undefined, category);
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     }
@@ -227,7 +228,7 @@ function PeopleModal({ scope, onPrint, onClose }: { scope: Scope; onPrint: () =>
 
 // Printed sheet for one barangay: rendered outside the app root and shown
 // only by @media print (workspace.css), then removed after printing.
-function PrintSheet({ scope, onDone }: { scope: Scope & { code: string }; onDone: () => void }) {
+function PrintSheet({ officeId, scope, onDone }: { officeId?: string; scope: Scope & { code: string }; onDone: () => void }) {
   const [rows, setRows] = useState<{ total: number; items: VulnerablePerson[]; truncated: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The parent passes a new onDone each render; keep the latest in a ref so
@@ -236,8 +237,8 @@ function PrintSheet({ scope, onDone }: { scope: Scope & { code: string }; onDone
   done.current = onDone;
 
   useEffect(() => {
-    api.disasterPrint(scope.code).then(setRows).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the list to print'));
-  }, [scope.code]);
+    api.disasterPrint(officeId, scope.code).then(setRows).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the list to print'));
+  }, [officeId, scope.code]);
 
   useEffect(() => {
     if (!rows) return;
