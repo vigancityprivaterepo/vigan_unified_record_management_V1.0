@@ -511,6 +511,30 @@ function officeRecordFormData(
   return fd;
 }
 
+// Program gaps (admin): see backend/src/services/programGaps.ts.
+export type GapRuleKind = 'missing' | 'conflict';
+export type GapRuleInput = {
+  name: string;
+  description: string | null;
+  kind: GapRuleKind;
+  targetModuleId: string;
+  sourceModuleIds: string[];
+  minAge: number | null;
+  maxAge: number | null;
+  sex: 'M' | 'F' | null;
+  isActive: boolean;
+};
+export type GapRuleSummary = GapRuleInput & {
+  id: string;
+  targetProgram: { id: string; name: string; office: { id: string; name: string; shortName: string | null; accentHue: number; icon: string } } | null;
+  sourcePrograms: string[];
+  // null when the rule is switched off (not computed).
+  total: number | null;
+  byBarangay: Array<{ code: string | null; name: string | null; count: number }>;
+  usesSampleData: boolean;
+};
+export type GapPerson = { personKey: string; name: string; age: number | null; sex: string | null; barangay: string | null; sourcePrograms: string[] };
+
 export const api = {
   login: (username: string, password: string) =>
     request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -565,6 +589,15 @@ export const api = {
   exportModuleRecords: (officeId: string, moduleId: string) =>
     download(`/offices/${officeId}/modules/${moduleId}/records/export.csv`, 'records.csv'),
   exportMasterlist: () => download('/admin/citizens/export.csv', 'citizen-masterlist.csv'),
+  programGaps: (barangayCode?: string) =>
+    request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`/admin/program-gaps${queryString({ barangayCode })}`),
+  programGapPeople: (ruleId: string, page: number, barangayCode?: string) =>
+    request<Paginated<GapPerson>>(`/admin/program-gaps/${ruleId}/people${queryString({ page, barangayCode })}`),
+  exportProgramGap: (ruleId: string, barangayCode?: string) =>
+    download(`/admin/program-gaps/${ruleId}/people.csv${queryString({ barangayCode })}`, 'program-gap.csv'),
+  createProgramGapRule: (input: GapRuleInput) => request<GapRuleInput & { id: string }>('/admin/program-gaps', { method: 'POST', body: JSON.stringify(input) }),
+  updateProgramGapRule: (id: string, input: Partial<GapRuleInput>) =>
+    request<GapRuleInput & { id: string }>(`/admin/program-gaps/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   // Soft-delete (sets isArchived) -- works for office_staff on their own
   // module and for admin on any module. `reason` is required and lands in
   // the audit log, not on the record itself.

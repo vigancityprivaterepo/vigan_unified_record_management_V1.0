@@ -10,6 +10,7 @@ import { officeWidgetsRouter } from './routes/officeWidgets';
 import { adminDashboardWidgetsRouter } from './routes/adminDashboardWidgets';
 import { adminInsightsRouter } from './routes/adminInsights';
 import { adminOfficesRouter } from './routes/adminOffices';
+import { adminProgramGapsRouter } from './routes/adminProgramGaps';
 import { adminReviewRouter } from './routes/adminReview';
 import { adminSettingsRouter } from './routes/adminSettings';
 import { adminUsersRouter } from './routes/adminUsers';
@@ -28,7 +29,9 @@ export function createApp(options?: {
   // Frontend and backend are different origins (different ports) even in
   // local dev -- credentialed (cookie-bearing) fetches need explicit CORS,
   // "*" isn't allowed together with credentials: true.
-  app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  // exposedHeaders: lets the browser read the export file name across the
+  // frontend/backend origins (otherwise every CSV saves under a fallback name).
+  app.use(cors({ origin: env.corsOrigin, credentials: true, exposedHeaders: ['Content-Disposition'] }));
   app.use(express.json());
   app.use(createSessionMiddleware(options?.sessionIdleTimeoutMs));
 
@@ -46,6 +49,7 @@ export function createApp(options?: {
   app.use('/admin/offices', adminOfficesRouter);
   app.use('/admin/dashboard/widgets', adminDashboardWidgetsRouter);
   app.use('/admin/insights', adminInsightsRouter);
+  app.use('/admin/program-gaps', adminProgramGapsRouter);
   app.use('/admin', adminDashboardRouter);
 
   // multer's file-size-limit and fileFilter rejections arrive here (they

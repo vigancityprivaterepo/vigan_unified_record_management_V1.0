@@ -174,6 +174,7 @@ model OfficeModule {
   formFields       OfficeFormField[]
   records          OfficeRecord[]
   dashboardWidgetSources DashboardWidgetSource[]
+  gapRules         ProgramGapRule[]
 
   @@unique([officeId, slug])
   @@map("office_module")
@@ -415,4 +416,32 @@ model AuditLog {
   @@index([tableName, recordId])
   @@index([actorUserId])
   @@map("audit_log")
+}
+
+// --- Program gaps ---------------------------------------------------------------
+// One rule = one question asked of the shared registry, e.g. "citizens aged
+// 60+ who are NOT on the Senior Citizen list" (kind 'missing') or "people
+// with a death record who ARE still on the PWD list" (kind 'conflict').
+// Conditions are a fixed recipe (age range, sex, being in any of some source
+// programs), not free SQL, so an admin can edit rules safely from the web
+// app. Computed live by services/programGaps.ts; nothing is stored per person.
+model ProgramGapRule {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  description     String?
+  kind            String   @default("missing") // 'missing' | 'conflict'
+  targetModuleId  String   @map("target_module_id") @db.Uuid
+  sourceModuleIds String[] @map("source_module_ids") @db.Uuid
+  minAge          Int?     @map("min_age")
+  maxAge          Int?     @map("max_age")
+  sex             String?
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  targetModule OfficeModule @relation(fields: [targetModuleId], references: [id])
+
+  @@map("program_gap_rule")
 }

@@ -67,6 +67,7 @@ async function main() {
   await prisma.duplicateReviewQueueItem.deleteMany();
   await prisma.dashboardWidget.deleteMany();
   await prisma.officeRecord.deleteMany();
+  await prisma.programGapRule.deleteMany();
   await prisma.officeFormField.deleteMany();
   await prisma.officeModule.deleteMany();
   await prisma.office.deleteMany();

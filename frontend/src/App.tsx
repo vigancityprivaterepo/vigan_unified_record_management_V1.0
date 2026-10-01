@@ -21,6 +21,7 @@ import { DuplicateReviewQueuePage } from '@/pages/DuplicateReviewQueuePage';
 import { DynamicOfficeIntakePage } from '@/pages/DynamicOfficeIntakePage';
 import { DynamicOfficeRecordsPage } from '@/pages/DynamicOfficeRecordsPage';
 import { HouseholdsPage } from '@/pages/HouseholdsPage';
+import { ProgramGapsPage } from '@/pages/ProgramGapsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { OfficeHomePage } from '@/pages/OfficeHomePage';
 import { OfficeWorkspacesPage } from '@/pages/OfficeWorkspacesPage';
@@ -41,6 +42,7 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   'visualizations:list': AllVisualizationsPage,
   citizens: CitizensPage,
   households: HouseholdsPage,
+  gaps: ProgramGapsPage,
   queue: DuplicateReviewQueuePage,
   workspaces: OfficeWorkspacesPage,
   'offices:create': CreateOfficePage,
