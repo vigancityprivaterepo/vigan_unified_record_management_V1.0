@@ -7,6 +7,7 @@ import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
 import { mergeCitizens } from '../services/mergeCitizens';
 import { createOfficeRecord } from '../services/officeSatelliteWriters';
+import { assertNoReliefClaim, ReliefAlreadyClaimedError } from '../services/reliefClaims';
 
 export const adminReviewRouter = Router();
 
@@ -137,6 +138,11 @@ adminReviewRouter.post('/:id/approve', requireRole('admin'), async (req, res) =>
     // Materialize + merge + queue-item update all commit together -- see
     // materializeQueuedIntake's comment for why this must be one transaction.
     const mergeResult = await client.$transaction(async (tx) => {
+      // The intake becomes the winner's record, so the winner's household
+      // must not already have a relief claim for the same event.
+      const queuedModule = await tx.officeModule.findUniqueOrThrow({ where: { id: item.moduleId }, select: { id: true, slug: true } });
+      const queuedFields = ((item.candidateData as { fields?: Record<string, unknown> } | null)?.fields ?? {});
+      await assertNoReliefClaim(tx, queuedModule, parsed.data.winningPersonKey, queuedFields);
       const { personKey: losingKey } = await materializeQueuedIntake(tx, item, actorUserId);
       const result = await mergeCitizens(tx, parsed.data.winningPersonKey, losingKey, actorUserId);
 
@@ -164,6 +170,10 @@ adminReviewRouter.post('/:id/approve', requireRole('admin'), async (req, res) =>
 
     res.json({ status: 'approved', winningPersonKey: parsed.data.winningPersonKey, mergeResult });
   } catch (err) {
+    if (err instanceof ReliefAlreadyClaimedError) {
+      sendError(res, 409, 'ALREADY_RECEIVED', err.message, err.conflict);
+      return;
+    }
     console.error(err);
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to approve review item');
   }

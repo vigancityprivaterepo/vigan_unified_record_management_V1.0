@@ -16,6 +16,7 @@ import { requireOfficeAccess } from '../middleware/auth';
 import { addHouseholdMember, designateHouseholdHead } from '../services/households';
 import { allModuleRecords, listModuleRecords, parseStatus, type RecordStatus } from '../services/officeRecordList';
 import { createOfficeRecord } from '../services/officeSatelliteWriters';
+import { assertNoReliefClaim, ReliefAlreadyClaimedError } from '../services/reliefClaims';
 import { resolvePerson } from '../services/resolvePerson';
 
 // The staff-facing side of every office -- CSWD/Agriculture/Civil Registry
@@ -333,7 +334,23 @@ officeRouter.post(
         });
       }
 
-      const record = await createOfficeRecord(client, officeModule.id, resolveResult.personKey, null, data, actorUserId);
+      // Check-then-insert in one transaction: Relief Distribution refuses a
+      // second claim from the same household for the same event (see
+      // services/reliefClaims.ts); for every other module this is a no-op.
+      const personKey = resolveResult.personKey;
+      let record: Awaited<ReturnType<typeof createOfficeRecord>>;
+      try {
+        record = await client.$transaction(async (tx) => {
+          await assertNoReliefClaim(tx, officeModule, personKey, data);
+          return createOfficeRecord(tx, officeModule.id, personKey, null, data, actorUserId);
+        });
+      } catch (err) {
+        if (err instanceof ReliefAlreadyClaimedError) {
+          sendError(res, 409, 'ALREADY_RECEIVED', err.message, err.conflict);
+          return;
+        }
+        throw err;
+      }
       await insertAuditLog(client, {
         tableName: record.table,
         recordId: record.recordId,

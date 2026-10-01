@@ -674,6 +674,8 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 }
 .alert .ico svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; }
 .alert .body { min-width: 0; }
+/* An alert with no .ico: the text takes the full width instead of the 24px icon column. */
+.alert > .body:first-child { grid-column: 1 / -1; }
 .alert .title { font-weight: 600; color: var(--t-base); margin-bottom: 2px; }
 .alert.success { background: var(--success-soft); border-left-color: var(--success); }
 .alert.success .ico { background: color-mix(in oklab, var(--success) 14%, transparent); color: var(--success); }
