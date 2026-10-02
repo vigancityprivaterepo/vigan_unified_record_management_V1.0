@@ -3,6 +3,8 @@ import { prisma } from '../lib/prisma';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { resetDb } from '../testUtils/resetDb';
 import { pace, quality, reach, underserved } from './cityInsights';
+import { cityAttention } from './cityAttention';
+import { countGap, toGapRule } from './programGaps';
 
 // Seeded CSWD Senior Citizen ('senior') module; one "Not yet served" rule.
 describe('city insights', () => {
@@ -53,5 +55,22 @@ describe('city insights', () => {
     await prisma.officeRecord.create({ data: { moduleId: seniorId, personKey: sample.personKey, data: { _sample: true } } });
     const q = (await quality(getPrismaForRole('admin'))).find((x) => x.office.includes('Social Welfare') || x.office === 'cswd')!;
     expect([q.records, q.sample]).toEqual([1, 1]);
+  });
+
+  it('overview attention counts agree with the pages they open', async () => {
+    await person('Unserved', 70);
+    await person('Also', 75);
+    await prisma.dataRequest.create({ data: { requesterName: 'T', kind: 'access', receivedOn: new Date(Date.now() - 3 * 86400000) } });
+    try {
+      const client = getPrismaForRole('admin');
+      const a = await cityAttention(client);
+      const rule = toGapRule(await prisma.programGapRule.findUniqueOrThrow({ where: { id: ruleId } }));
+      expect(a.gaps.notServed).toBe((await countGap(client, rule, {})).total);
+      expect(a.gaps.notServed).toBe(2);
+      expect(a.privacy).toEqual({ open: 1, oldestDays: 3 });
+      expect(a.disaster.relief).toBeNull();
+    } finally {
+      await prisma.dataRequest.deleteMany();
+    }
   });
 });

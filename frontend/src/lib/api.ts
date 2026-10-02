@@ -608,6 +608,14 @@ export type RegistryLinks = {
   }>;
 };
 
+// City overview "Needs attention" tiles: backend services/cityAttention.ts.
+export type CityAttention = {
+  gaps: { notServed: number; cleanup: number };
+  disaster: { evacuatedNow: number; relief: { label: string; notReached: number; households: number } | null };
+  renewals: { year: number; notRenewed: number };
+  privacy: { open: number; oldestDays: number | null };
+};
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -681,6 +689,7 @@ export const api = {
     request<DataRequest>('/admin/privacy/requests', { method: 'POST', body: JSON.stringify(input) }),
   updateDataRequest: (id: string, input: { status?: DataRequest['status']; response?: string | null; closedOn?: string | null }) =>
     request<DataRequest>(`/admin/privacy/requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  cityAttention: () => request<CityAttention>('/admin/insights/attention'),
   cityInsights: () => request<CityInsights>('/admin/insights/questions'),
   officeTodo: (officeId: string) => request<TodoItem[]>(`/offices/${officeId}/todo`),
   officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),

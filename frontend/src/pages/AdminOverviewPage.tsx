@@ -3,7 +3,7 @@ import { Icon } from '@/components/Icon';
 import { LoadError } from '@/components/LoadError';
 import { compact, shortName } from '@/components/shell/OfficeSidebar';
 import type { AdminTab } from '@/components/shell/AdminSidebar';
-import { api, ApiError, type InsightsSummary, type OfficeBreakdown, type SankeyData } from '@/lib/api';
+import { api, ApiError, type CityAttention, type InsightsSummary, type OfficeBreakdown, type SankeyData } from '@/lib/api';
 import { seriesColor } from '@/lib/chartTheme';
 
 
@@ -159,6 +159,8 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
         </div>
       </div>
 
+      <AttentionTiles onNavigate={onNavigate} />
+
       <section className="ws-card ws-card--pad ws-stack-y">
         <div className="ws-section-head">
           <div className="grow">
@@ -270,4 +272,52 @@ function niceMax(v: number): number {
   const m = Math.pow(10, Math.floor(Math.log10(v)));
   const f = v / m;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * m;
+}
+
+// "Needs attention": the follow-up lists from the other pages, as counts
+// that open the page with the names (backend services/cityAttention.ts).
+// A failure here never blocks the rest of the Overview.
+function AttentionTiles({ onNavigate }: { onNavigate?: (tab: AdminTab) => void }) {
+  const [a, setA] = useState<CityAttention | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    setError(null);
+    api.cityAttention().then(setA).catch((err) => { setA(null); setError(err); });
+  }, [attempt]);
+
+  if (error != null) return <LoadError what="the follow-up counts" error={error} onRetry={() => setAttempt((n) => n + 1)} />;
+  if (!a) return null;
+  const relief = a.disaster.relief;
+  const tiles: Array<{ key: AdminTab; label: string; page?: string; value: number; sub: string; warn: boolean }> = [
+    {
+      key: 'gaps', label: 'Program gaps', value: a.gaps.notServed,
+      sub: `qualify for a program but are not in it${a.gaps.cleanup ? `; ${a.gaps.cleanup} still on a list they should not be on` : ''}`,
+      warn: a.gaps.notServed + a.gaps.cleanup > 0,
+    },
+    relief
+      ? { key: 'disaster', label: 'Disaster lists', value: relief.notReached, sub: `of ${relief.households} households not reached by relief: ${relief.label}`, warn: relief.notReached > 0 }
+      : { key: 'disaster', label: 'Disaster lists', value: a.disaster.evacuatedNow, sub: 'residents who may need help are in an evacuation center now', warn: a.disaster.evacuatedNow > 0 },
+    { key: 'renewals', label: 'Business renewals', value: a.renewals.notRenewed, sub: `businesses not renewed for ${a.renewals.year}`, warn: a.renewals.notRenewed > 0 },
+    {
+      key: 'privacy', label: 'Data requests', page: 'Privacy', value: a.privacy.open,
+      sub: a.privacy.open === 0 ? 'none waiting for an answer' : `waiting for an answer; oldest ${a.privacy.oldestDays} ${a.privacy.oldestDays === 1 ? 'day' : 'days'}`,
+      warn: a.privacy.open > 0,
+    },
+  ];
+  return (
+    <section aria-labelledby="attention-title" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <h2 id="attention-title" style={{ margin: 0, fontSize: 18 }}>Needs attention</h2>
+      <div className="ws-kpis">
+        {tiles.map((t) => (
+          <button key={t.key} type="button" className="ws-card ws-kpi br-kpi-btn ov-att" disabled={!onNavigate} onClick={() => onNavigate?.(t.key)}>
+            <span className="ws-kpi-label">{t.label}</span>
+            <span className={`ws-kpi-value${t.warn ? '' : ' ov-att-ok'}`}>{t.value.toLocaleString()}</span>
+            <span className="ws-kpi-sub">{t.sub}</span>
+            <span className="ov-att-go">Open {t.page ?? t.label} <Icon name="arrowR" size={14} /></span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 }

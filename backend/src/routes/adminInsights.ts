@@ -12,6 +12,7 @@ import {
 } from '../services/insights';
 import { computeOfficeBreakdown } from '../services/officeBreakdown';
 import { pace, quality, reach, underserved } from '../services/cityInsights';
+import { cityAttention } from '../services/cityAttention';
 
 export const adminInsightsRouter = Router();
 adminInsightsRouter.use(requireRole('admin'));
@@ -91,5 +92,13 @@ adminInsightsRouter.get(
     const client = getPrismaForRole('admin');
     const [u, r, p, q] = await Promise.all([underserved(client), reach(client), pace(client), quality(client)]);
     res.json({ underserved: u, reach: r, pace: p, quality: q });
+  }),
+);
+
+// City overview "Needs attention" tiles (services/cityAttention.ts).
+adminInsightsRouter.get(
+  '/attention',
+  asyncHandler(async (_req, res) => {
+    res.json(await cityAttention(getPrismaForRole('admin')));
   }),
 );

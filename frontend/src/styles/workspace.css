@@ -595,3 +595,8 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
    12 tags, axis labels, footnotes; 13 help, errors, secondary text;
    14 table cells, buttons; 15 body; 17 to 18 card titles; 22 page titles. */
 :root { --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-body: 15px; --fs-lg: 18px; --fs-title: 22px; }
+
+/* City overview: "Needs attention" tiles */
+.ov-att { display: flex; flex-direction: column; gap: 4px; }
+.ov-att-ok { color: var(--t-muted); }
+.ov-att-go { margin-top: auto; padding-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; color: var(--primary); }
