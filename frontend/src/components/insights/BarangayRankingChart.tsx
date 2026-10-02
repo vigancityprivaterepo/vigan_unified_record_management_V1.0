@@ -19,7 +19,7 @@ export function BarangayRankingChart({
   if (data.length === 0) {
     return (
       <p style={{ fontSize: 13, color: 'var(--t-muted)', textAlign: 'center', padding: '48px 0' }}>
-        No barangay data yet -- this fills in once citizens have a barangay on file.
+        No barangay data yet. It fills in once citizens have a barangay on file.
       </p>
     );
   }

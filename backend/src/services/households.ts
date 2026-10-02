@@ -72,7 +72,7 @@ export async function addHouseholdMember(
     return { ok: false, code: 'NOT_FOUND', message: 'No citizen with that person_key' };
   }
   if (member.personIsHead) {
-    return { ok: false, code: 'ALREADY_HEAD', message: 'This person heads their own household -- remove that first' };
+    return { ok: false, code: 'ALREADY_HEAD', message: 'This person heads their own household. Remove that first.' };
   }
   if (member.personParentKey) {
     return {

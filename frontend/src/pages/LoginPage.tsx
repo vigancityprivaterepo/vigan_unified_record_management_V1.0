@@ -84,7 +84,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) 
 
         <div className="auth-main-bottom">
           <div>Vigan City LGU internal staff system, not for public access.</div>
-          <div>Internal use only &middot; RA 10173 (Data Privacy Act) compliant</div>
+          <div>Internal use only &middot; Personal data here is covered by the Data Privacy Act (RA 10173).</div>
         </div>
       </div>
     </div>

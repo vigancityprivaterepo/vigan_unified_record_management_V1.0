@@ -437,7 +437,7 @@ function AddAccountForm({
         <div className="field">
           <label className="field-label" htmlFor="new-office">Office</label>
           <select id="new-office" className="select" value={officeId} onChange={(e) => setOfficeId(e.target.value)} required>
-            <option value="" disabled>{offices.length === 0 ? 'No offices yet -- create one first' : 'Select office'}</option>
+            <option value="" disabled>{offices.length === 0 ? 'No offices yet. Create one first.' : 'Select office'}</option>
             {offices.map((o) => (
               <option key={o.id} value={o.id}>{o.name}</option>
             ))}
@@ -540,7 +540,7 @@ function EditAccountForm({
           </label>
           <select id="edit-office" className="select" value={officeId} onChange={(e) => setOfficeId(e.target.value)} required>
             <option value="" disabled>
-              {offices.length === 0 ? 'No offices yet -- create one first' : 'Select office'}
+              {offices.length === 0 ? 'No offices yet. Create one first.' : 'Select office'}
             </option>
             {offices.map((o) => (
               <option key={o.id} value={o.id}>

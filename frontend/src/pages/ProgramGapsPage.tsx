@@ -310,8 +310,8 @@ function RuleForm({ id, initial, programs, onSaved, onCancel }: {
       <div className="field">
         <label className="field-label" htmlFor="gap-kind">Type</label>
         <select id="gap-kind" className="select" value={f.kind} onChange={(e) => set('kind', e.target.value as GapRuleInput['kind'])}>
-          <option value="missing">Not yet served: matches the conditions but is NOT in the program</option>
-          <option value="conflict">Needs cleanup: matches the conditions but IS still in the program</option>
+          <option value="missing">Not yet served: meets the conditions and is not in the program</option>
+          <option value="conflict">Needs cleanup: meets the conditions and is still in the program</option>
         </select>
       </div>
       <div className="field">

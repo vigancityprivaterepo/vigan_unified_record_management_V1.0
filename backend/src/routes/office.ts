@@ -372,7 +372,7 @@ officeRouter.patch(
     let nextPerson: Record<string, unknown> | undefined;
     if (parsed.data.person) {
       if (record.personKey || !officeModule.collectPersonInfo) {
-        sendError(res, 400, 'VALIDATION_ERROR', "This record is linked to a registered citizen -- ask an administrator to correct the citizen's name or birthdate");
+        sendError(res, 400, 'VALIDATION_ERROR', "This record is linked to a registered citizen. Ask an administrator to correct the citizen's name or birthdate");
         return;
       }
       const prev = (record.unresolvedPerson ?? {}) as Record<string, unknown>;

@@ -97,7 +97,7 @@ function SavedVisualizations() {
       <div className="card-head">
         <div className="card-title-wrap">
           <h3 className="card-title">Visualizations</h3>
-          <p className="card-desc">Built from the Visualizations page -- consolidated data from any office.</p>
+          <p className="card-desc">Built from the Visualizations page, with data from any office.</p>
         </div>
       </div>
 
@@ -105,7 +105,7 @@ function SavedVisualizations() {
 
       {widgets?.filter((w) => w.showOnDashboard).length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--t-muted)' }}>
-          Nothing on the dashboard yet -- use “Add to dashboard” on the Visualizations page.
+          Nothing on the dashboard yet. Use “Add to dashboard” on the Visualizations page.
         </p>
       )}
 

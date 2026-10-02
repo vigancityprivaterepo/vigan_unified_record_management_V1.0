@@ -479,7 +479,7 @@ adminOfficesRouter.delete(
       return;
     }
     if (widgetSourceCount > 0) {
-      sendError(res, 409, 'MODULE_USED_BY_WIDGET', 'This module is used as a data source by a dashboard visualization -- remove that first');
+      sendError(res, 409, 'MODULE_USED_BY_WIDGET', 'This module is used as a data source by a dashboard visualization. Remove that first.');
       return;
     }
 
@@ -588,7 +588,7 @@ adminOfficesRouter.post(
         res,
         400,
         'VALIDATION_ERROR',
-        `"${parsed.data.label}" is already collected by every module's intake form -- no need to add it as a custom field`,
+        `"${parsed.data.label}" is already collected by every module's intake form, so there is no need to add it as a custom field`,
         { label: ['Already collected by the core intake form'] },
       );
       return;
@@ -652,7 +652,7 @@ adminOfficesRouter.patch(
         res,
         400,
         'VALIDATION_ERROR',
-        `"${parsed.data.label}" is already collected by every module's intake form -- no need for it as a custom field`,
+        `"${parsed.data.label}" is already collected by every module's intake form, so there is no need for it as a custom field`,
         { label: ['Already collected by the core intake form'] },
       );
       return;

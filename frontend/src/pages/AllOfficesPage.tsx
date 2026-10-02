@@ -96,7 +96,7 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
           }
         }
       } else {
-        setError(err instanceof ApiError ? err.message : 'Failed to delete office -- it may still have modules or staff accounts');
+        setError(err instanceof ApiError ? err.message : 'Could not delete the office. It may still have modules or staff accounts.');
       }
     } finally {
       setBusyId(null);
@@ -436,7 +436,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
       await api.deleteOfficeModule(office.id, officeModule.id);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to remove module -- it may already have saved records');
+      setError(err instanceof ApiError ? err.message : 'Could not remove the module. It may already have saved records.');
     } finally {
       setBusyId(null);
     }
@@ -761,7 +761,7 @@ function ModuleFieldsSection({ office, officeModule }: { office: Office; officeM
   return (
     <>
       <p style={{ fontSize: 13, color: 'var(--t-muted)', marginTop: 0, marginBottom: 20 }}>
-        Every module form also collects last/first/middle name, birthdate, and address -- these are the extra
+        Every module form also collects last/first/middle name, birthdate, and address. These are the extra
         fields specific to {officeModule.name}.
       </p>
 
