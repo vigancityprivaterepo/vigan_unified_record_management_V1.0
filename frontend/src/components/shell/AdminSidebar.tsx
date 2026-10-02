@@ -13,6 +13,7 @@ export type AdminTab =
   | 'gaps'
   | 'disaster'
   | 'renewals'
+  | 'heritage'
   | 'privacy'
   | 'queue'
   | 'workspaces'
@@ -33,6 +34,7 @@ const MAIN: Array<{ key: AdminTab; label: string; icon: string }> = [
   { key: 'gaps', label: 'Program gaps', icon: 'target' },
   { key: 'disaster', label: 'Disaster lists', icon: 'alert' },
   { key: 'renewals', label: 'Business renewals', icon: 'store' },
+  { key: 'heritage', label: 'Heritage zone', icon: 'map' },
   { key: 'queue', label: 'Duplicate review', icon: 'queue' },
 ];
 const MANAGE: Array<{ key: AdminTab; label: string; icon: string }> = [

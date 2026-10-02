@@ -600,3 +600,23 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .ov-att { display: flex; flex-direction: column; gap: 4px; }
 .ov-att-ok { color: var(--t-muted); }
 .ov-att-go { margin-top: auto; padding-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; color: var(--primary); }
+
+/* ---------- Program summary report ---------- */
+.rp-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.rp-range .input { width: auto; }
+.rp-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp-totals { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.rp-totals > div { display: flex; align-items: baseline; gap: 6px; }
+.rp-totals strong { font-family: var(--font-display); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rp-totals span { color: var(--t-muted); }
+.rp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px 28px; }
+.rp-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(36px, 1fr) 44px 38px; gap: 10px; align-items: center; padding: 4px 0; font-size: 14px; }
+.rp-row > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-row > strong, .rp-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.rp-pct { color: var(--t-muted); font-size: 13px; }
+
+/* ---------- Heritage zone ---------- */
+.hz-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.hz-empty > span { flex: 1 1 320px; }
+.hz-note { font-weight: 400; color: var(--t-muted); font-size: 13px; }
+.hz-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 16px; max-height: 360px; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }

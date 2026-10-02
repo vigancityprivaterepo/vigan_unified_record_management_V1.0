@@ -616,6 +616,24 @@ export type CityAttention = {
   privacy: { open: number; oldestDays: number | null };
 };
 
+// Program summary report: backend services/programReport.ts.
+export type ProgramReport = {
+  from: string; to: string; total: number; people: number; notLinked: number; sample: number;
+  bySex: Array<{ name: string; count: number }>; byAge: Array<{ name: string; count: number }>;
+  byBarangay: Array<{ name: string; count: number }>; byMonth: Array<{ month: string; count: number }>;
+};
+// Heritage zone (admin): backend services/heritageZone.ts.
+export type HeritageSummary = {
+  barangays: Array<{ code: string; name: string }>;
+  allBarangays: Array<{ code: string; name: string }>;
+  year: number;
+  businesses: { total: number; renewed: number; notRenewed: number; lapsed: number; noYear: number; byBarangay: Array<{ name: string; total: number; notRenewed: number }> };
+  buildingPermits: { total: number; thisYear: number; byFlag: number; byBarangay: Array<{ name: string; count: number }>; byUse: Array<{ name: string; count: number }> };
+  occupancyPermits: { total: number; thisYear: number };
+  zoning: { total: number; byDecision: Array<{ name: string; count: number }> };
+  usesSampleData: boolean;
+};
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -689,6 +707,12 @@ export const api = {
     request<DataRequest>('/admin/privacy/requests', { method: 'POST', body: JSON.stringify(input) }),
   updateDataRequest: (id: string, input: { status?: DataRequest['status']; response?: string | null; closedOn?: string | null }) =>
     request<DataRequest>(`/admin/privacy/requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  programReport: (officeId: string, moduleId: string, from: string, to: string) =>
+    request<ProgramReport>(`/offices/${officeId}/modules/${moduleId}/report${queryString({ from, to })}`),
+  exportProgramReport: (officeId: string, moduleId: string, from: string, to: string) =>
+    download(`/offices/${officeId}/modules/${moduleId}/report.csv${queryString({ from, to })}`, 'report.csv'),
+  heritage: () => request<HeritageSummary>('/admin/heritage'),
+  setHeritageBarangays: (codes: string[]) => request<{ codes: string[] }>('/admin/heritage/barangays', { method: 'PUT', body: JSON.stringify({ codes }) }),
   cityAttention: () => request<CityAttention>('/admin/insights/attention'),
   cityInsights: () => request<CityInsights>('/admin/insights/questions'),
   officeTodo: (officeId: string) => request<TodoItem[]>(`/offices/${officeId}/todo`),

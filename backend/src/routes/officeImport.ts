@@ -7,6 +7,8 @@ import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireOfficeAccess } from '../middleware/auth';
 import { MAX_ROWS_PER_REQUEST, runImport } from '../services/officeImport';
 import { linkCandidates, linkRecord, linkSure } from '../services/registryLinking';
+import { programReport } from '../services/programReport';
+import { sendCsv } from '../lib/csv';
 import { parsePage } from '../lib/pagination';
 import type { Request, Response } from 'express';
 
@@ -120,5 +122,58 @@ officeImportRouter.post(
     const m = await linkableModule(req, res);
     if (!m) return;
     res.json(await linkSure(m.client, m.module.id, { userId: req.session.userId!, role: req.session.role! }));
+  }),
+);
+
+// Summary report for one program and date range (services/programReport.ts).
+// Counts only, no names; office staff for their own office, and admin.
+function reportRange(req: Request, res: Response): { from: string; to: string } | null {
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  const from = typeof req.query.from === 'string' ? req.query.from : '';
+  const to = typeof req.query.to === 'string' ? req.query.to : '';
+  if (!day.test(from) || !day.test(to) || from > to) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'Choose a start and end date, with the start first');
+    return null;
+  }
+  return { from, to };
+}
+
+async function reportModule(req: Request, res: Response) {
+  const client = getPrismaForRole(req.session.role!);
+  const module = await client.officeModule.findUnique({ where: { id: req.params.moduleId }, include: { office: { select: { name: true } } } });
+  if (!module || module.officeId !== req.params.officeId) { sendError(res, 404, 'NOT_FOUND', 'No such program'); return null; }
+  return { client, module };
+}
+
+officeImportRouter.get(
+  '/:officeId/modules/:moduleId/report',
+  requireOfficeAccess,
+  asyncHandler(async (req, res) => {
+    const range = reportRange(req, res);
+    if (!range) return;
+    const m = await reportModule(req, res);
+    if (!m) return;
+    res.json(await programReport(m.client, m.module.id, range.from, range.to));
+  }),
+);
+
+officeImportRouter.get(
+  '/:officeId/modules/:moduleId/report.csv',
+  requireOfficeAccess,
+  asyncHandler(async (req, res) => {
+    const range = reportRange(req, res);
+    if (!range) return;
+    const m = await reportModule(req, res);
+    if (!m) return;
+    const r = await programReport(m.client, m.module.id, range.from, range.to);
+    const rows: Array<[string, string, number]> = [
+      ['Total', 'Records', r.total], ['Total', 'Registry citizens', r.people], ['Total', 'Records not linked to the registry', r.notLinked], ['Total', 'Sample records', r.sample],
+      ...r.bySex.map((x): [string, string, number] => ['Sex', x.name, x.count]),
+      ...r.byAge.map((x): [string, string, number] => ['Age group', x.name, x.count]),
+      ...r.byBarangay.map((x): [string, string, number] => ['Barangay', x.name, x.count]),
+      ...r.byMonth.map((x): [string, string, number] => ['Month', x.month, x.count]),
+    ];
+    sendCsv(res, `${m.module.slug}-report-${range.from}-to-${range.to}.csv`, ['Group', 'Item', 'Count'],
+      [[`${m.module.office.name}: ${m.module.name}`, `${range.from} to ${range.to}`, ''], ...rows]);
   }),
 );

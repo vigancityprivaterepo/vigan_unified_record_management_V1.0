@@ -14,6 +14,7 @@ const OFFICE_BASE: Item[] = [
   ['Remove a mistake', 'Use the Archive button on the record and give a reason. Archived records stay under the Archived filter, where Restore brings them back.'],
   ['Import from a spreadsheet', 'On Records, choose Import and pick a CSV file. Match its columns to the form, then Check rows: nothing is saved until you import. Rows with problems are skipped and can be downloaded to fix.'],
   ['Charts', 'Build charts from your office’s programs on Charts. Pin to Home shows a chart on your Home page.'],
+  ['Report', 'On Records, Report counts a program’s registrations for any period by sex, age group, barangay and month. Print it or export it as CSV.'],
 ];
 
 const OFFICE_GAPS: Item = ['Program gaps', 'People who qualify for your programs but are not in them yet, and lists that need cleanup, such as deceased people still on a list. The city administrator sets the rules. Opening and exporting a list is recorded in the audit log.'];
@@ -29,6 +30,7 @@ const ADMIN_HELP: Item[] = [
   ['Program gaps', 'People who qualify for a program but are not in it, and lists that need cleanup. Manage rules adds, edits or switches off a rule. Each office sees the rules for its own programs.'],
   ['Disaster lists', 'Residents who may need help to evacuate, by barangay and household, and who has received relief for an event. CDRRMO records relief from its own Disaster lists.'],
   ['Business renewals', 'Businesses whose latest permit is older than this year, from BPLO’s Business Permits records.'],
+  ['Heritage zone', 'Businesses, building and occupancy permits and zoning clearances inside the barangays you mark as the heritage zone. Choose barangays sets which ones count.'],
   ['Duplicate review', 'Registrations whose name and birthdate were close to an existing citizen wait here until you approve (same person) or reject (different person).'],
   ['Office workspaces', 'Open any office’s records exactly as its staff see them, read-only.'],
   ['Offices', 'Create offices. Manage opens an office’s details, its programs and forms, and its color and icon.'],

@@ -154,7 +154,7 @@ function flattenZod(details: unknown, fieldDefs: FieldDef[]): string[] {
 
 // "Barangay I (Poblacion)", "BARANGAY I", "barangay 1" ... -> one key.
 const ROMAN: Record<string, string> = { '1': 'i', '2': 'ii', '3': 'iii', '4': 'iv', '5': 'v', '6': 'vi', '7': 'vii', '8': 'viii', '9': 'ix' };
-function normBrgy(s: string): string {
+export function normBrgy(s: string): string {
   const SKIP = new Set(['barangay', 'brgy', 'poblacion']);
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
     .filter((w) => !SKIP.has(w)).map((w) => ROMAN[w] ?? w).join(' ');
