@@ -56,6 +56,8 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [managingId, setManagingId] = useState<string | null>(null);
+  // Which part of Manage office is open in its own popup.
+  const [section, setSection] = useState<'details' | 'programs' | 'appearance' | null>(null);
   const [search, setSearch] = useState('');
 
   function load() {
@@ -205,35 +207,64 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
         </Modal>
       )}
 
-      {managing && (
-        <Modal title="Manage office" eyebrow={managing.name} onClose={() => setManagingId(null)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-            <section>
-              <h3 className="ws-manage-title">Office details</h3>
-              <OfficeDetailsEditor key={managing.id} office={managing} onSaved={load} />
-            </section>
-            <section>
-              <h3 className="ws-manage-title">Programs &amp; forms</h3>
-              <OfficeModulesSection office={managing} />
-            </section>
-            <section>
-              <h3 className="ws-manage-title">Color &amp; icon</h3>
-              <OfficeAppearanceEditor office={managing} offices={offices ?? []} onSaved={() => load()} />
-            </section>
-            <section>
-              <h3 className="ws-manage-title">Status</h3>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn--ghost ws-topbar-btn" disabled={busyId === managing.id} onClick={() => handleToggleActive(managing)}>
-                  {managing.isActive ? 'Deactivate office' : 'Reactivate office'}
+      {managing && (() => {
+        const { hue, icon } = officeAppearance(managing);
+        const programs = managing.modules ?? [];
+        return (
+          <Modal title="Manage office" eyebrow={shortName(managing.name)} onClose={() => { setManagingId(null); setSection(null); }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className="mo-head">
+                <span className="ws-tile" style={{ background: officeColor(hue, 'acc') }}><Icon name={icon} size={22} strokeWidth={1.8} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 17 }}>{managing.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--t-muted)' }}>{managing.isActive ? 'Active' : 'Deactivated'} · {programs.length} {programs.length === 1 ? 'program' : 'programs'}</div>
+                </div>
+              </div>
+              <div className="mo-menu">
+                <button type="button" className="mo-item" onClick={() => setSection('details')}>
+                  <Icon name="building" size={18} />
+                  <span><strong>Office details</strong><span>{[managing.shortName, managing.description].filter(Boolean).join(' · ') || 'Name, short name and description'}</span></span>
+                  <Icon name="chevR" size={16} />
                 </button>
-                <button type="button" className="btn btn--ghost ws-topbar-btn" style={{ color: 'var(--danger)' }} disabled={busyId === managing.id} onClick={() => handleDelete(managing)}>
-                  Delete office
+                <button type="button" className="mo-item" onClick={() => setSection('programs')}>
+                  <Icon name="list" size={18} />
+                  <span><strong>Programs &amp; forms</strong><span>{programs.map((m) => m.name).join(', ') || 'No programs yet'}</span></span>
+                  <Icon name="chevR" size={16} />
+                </button>
+                <button type="button" className="mo-item" onClick={() => setSection('appearance')}>
+                  <span className="mo-swatch" style={{ background: officeColor(hue, 'acc') }}><Icon name={icon} size={12} strokeWidth={2.2} /></span>
+                  <span><strong>Color &amp; icon</strong><span>How this office looks in the sidebar and lists</span></span>
+                  <Icon name="chevR" size={16} />
                 </button>
               </div>
-            </section>
-          </div>
-        </Modal>
-      )}
+              <div className="mo-status">
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--t-muted)' }}>{managing.isActive ? 'Staff of this office can sign in.' : 'This office is switched off.'}</span>
+                <button type="button" className="btn btn--ghost ws-topbar-btn" disabled={busyId === managing.id} onClick={() => handleToggleActive(managing)}>
+                  {managing.isActive ? 'Deactivate' : 'Reactivate'}
+                </button>
+                <button type="button" className="btn btn--ghost ws-topbar-btn" style={{ color: 'var(--danger)' }} disabled={busyId === managing.id} onClick={() => handleDelete(managing)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+            {section === 'details' && (
+              <Modal title="Office details" eyebrow={shortName(managing.name)} onClose={() => setSection(null)}>
+                <OfficeDetailsEditor key={managing.id} office={managing} onSaved={load} />
+              </Modal>
+            )}
+            {section === 'programs' && (
+              <Modal title="Programs & forms" eyebrow={shortName(managing.name)} wide onClose={() => { setSection(null); load(); }}>
+                <OfficeModulesSection office={managing} />
+              </Modal>
+            )}
+            {section === 'appearance' && (
+              <Modal title="Color & icon" eyebrow={shortName(managing.name)} onClose={() => setSection(null)}>
+                <OfficeAppearanceEditor office={managing} offices={offices ?? []} onSaved={() => load()} />
+              </Modal>
+            )}
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
@@ -371,6 +402,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingModule, setEditingModule] = useState<OfficeModule | null>(null);
+  const [adding, setAdding] = useState(false);
 
   function load() {
     api
@@ -405,6 +437,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
       setSlug('');
       setSlugTouched(false);
       load();
+      setAdding(false);
       setEditingModule(created);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to create module');
@@ -440,38 +473,13 @@ function OfficeModulesSection({ office }: { office: Office }) {
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="form-grid" style={{ marginBottom: 20 }}>
-          <div className="field">
-            <label className="field-label" htmlFor="module-name">
-              Module name
-            </label>
-            <input id="module-name" className="input" value={name} onChange={(e) => handleNameChange(e.target.value)} required />
-          </div>
-          <div className="field">
-            <label className="field-label" htmlFor="module-slug">
-              Identifier
-            </label>
-            <input
-              id="module-slug"
-              className="input mono"
-              value={slug}
-              onChange={(e) => {
-                setSlugTouched(true);
-                setSlug(e.target.value);
-              }}
-              required
-            />
-          </div>
-          <RecordSubjectPicker name="module-subject" value={subject} onChange={setSubject} />
-          <div className="field span-2" style={{ justifyContent: 'flex-end' }}>
-            <button type="submit" className="btn btn--primary" disabled={creating}>
-              {creating ? 'Adding...' : 'Add module'}
-            </button>
-          </div>
-        </form>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ flex: 1, fontSize: 14, color: 'var(--t-muted)' }}>Each program has its own registration form and records list.</span>
+          <button type="button" className="btn btn--primary" onClick={() => setAdding(true)}><Icon name="plus" size={16} /> Add program</button>
+        </div>
 
         {modules === null && <span className="spinner" />}
-        {modules?.length === 0 && <p style={{ fontSize: 13, color: 'var(--t-muted)' }}>No modules yet.</p>}
+        {modules?.length === 0 && <p style={{ fontSize: 13, color: 'var(--t-muted)' }}>No programs yet.</p>}
 
         {modules && modules.length > 0 && (
           <div className="table-scroll">
@@ -480,7 +488,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
                 <tr>
                   <th>Name</th>
                   <th>Identifier</th>
-                  <th>Citizen link</th>
+                  <th>Records are about</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -491,11 +499,11 @@ function OfficeModulesSection({ office }: { office: Office }) {
                     <td className="mono">{m.slug}</td>
                     <td>
                       {!m.collectPersonInfo ? (
-                        <span className="tag t-inactive">No person info</span>
+                        <span className="tag t-inactive">Not a person</span>
                       ) : m.requiresCitizenLink ? (
-                        <span className="tag t-active">Required</span>
+                        <span className="tag t-active">A Vigan resident</span>
                       ) : (
-                        <span className="tag t-inactive">Optional</span>
+                        <span className="tag t-inactive">A person, link optional</span>
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -512,6 +520,40 @@ function OfficeModulesSection({ office }: { office: Office }) {
             </table>
           </div>
         )}
+
+      {adding && (
+        <Modal title="Add program" eyebrow={office.name} onClose={() => setAdding(false)}>
+          <form onSubmit={handleCreate} className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="module-name">
+                Program name
+              </label>
+              <input id="module-name" className="input" value={name} onChange={(e) => handleNameChange(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="module-slug">
+                Identifier
+              </label>
+              <input
+                id="module-slug"
+                className="input mono"
+                value={slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(e.target.value);
+                }}
+                required
+              />
+            </div>
+            <RecordSubjectPicker name="module-subject" value={subject} onChange={setSubject} />
+            <div className="field span-2" style={{ justifyContent: 'flex-end' }}>
+              <button type="submit" className="btn btn--primary" disabled={creating}>
+                {creating ? 'Adding...' : 'Add program'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {selectedModule && (
         <Modal

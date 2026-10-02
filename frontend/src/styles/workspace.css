@@ -546,3 +546,15 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .rs-choice input { margin-top: 3px; accent-color: var(--primary); }
 .rs-choice strong { display: block; font-size: 14px; }
 .rs-hint { display: block; font-size: 13px; color: var(--t-muted); line-height: 1.35; margin-top: 2px; }
+
+/* ---------- Manage office: a short menu, each part in its own popup ---------- */
+.mo-head { display: flex; align-items: center; gap: 12px; }
+.mo-menu { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.mo-item { display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px; border: 0; border-top: 1px solid var(--border-soft); background: var(--bg-card); color: var(--t-base); font: inherit; text-align: left; cursor: pointer; }
+.mo-item:first-child { border-top: 0; }
+.mo-item:hover { background: var(--bg-hover); }
+.mo-item > svg { color: var(--t-muted); }
+.mo-item strong { display: block; font-size: 15px; }
+.mo-item strong + span { display: block; font-size: 13px; color: var(--t-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mo-swatch { width: 22px; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; color: #fff; }
+.mo-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-soft); }

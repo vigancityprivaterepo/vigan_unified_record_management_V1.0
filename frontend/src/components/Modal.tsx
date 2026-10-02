@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+const openStack: object[] = [];
 
 // Generic popup shell -- backdrop click, Escape, and the corner X all close
 // it via the same onClose callback. Nests fine (a modal opened from inside
@@ -17,9 +19,20 @@ export function Modal({
   // Detail views (a household) get more room than a form.
   wide?: boolean;
 }) {
+  // Escape closes only the topmost popup: each open Modal pushes a token on
+  // a shared stack and reacts only while its token is on top.
+  const token = useRef({});
+  useEffect(() => {
+    const me = token.current;
+    openStack.push(me);
+    return () => {
+      const i = openStack.lastIndexOf(me);
+      if (i >= 0) openStack.splice(i, 1);
+    };
+  }, []);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && openStack[openStack.length - 1] === token.current) onClose();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
