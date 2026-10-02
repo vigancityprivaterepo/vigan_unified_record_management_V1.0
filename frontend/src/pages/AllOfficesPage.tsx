@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { RecordSubjectPicker, SUBJECT_SETTINGS, type RecordSubject } from '@/components/RecordSubjectPicker';
 import { IconButton } from '@/components/IconButton';
 import { Icon } from '@/components/Icon';
 import { Modal } from '@/components/Modal';
@@ -382,25 +383,25 @@ function OfficeModulesSection({ office }: { office: Office }) {
   }
 
   useEffect(load, [office.id]);
+  const [subject, setSubject] = useState<RecordSubject>('registry');
 
   function handleNameChange(value: string) {
     setName(value);
     if (!slugTouched) setSlug(slugifyPreview(value));
   }
 
-  // Creating only asks for name + identifier -- whether it collects a
-  // person's identity, requires a Citizen link, and which optional core
-  // fields it gathers are all configured afterward via Edit (see
-  // ModuleCoreFieldsEditor), on the module that now exists, instead of
-  // being crammed into this one-shot form. New modules start with every
-  // one of those defaulted on, same as the backend's own defaults.
+  // Creating asks for name, identifier and what each record is about
+  // (RecordSubjectPicker: a registry resident, a person with an optional
+  // link, or not a person). Which optional core fields it gathers is set
+  // afterward via Configure (ModuleCoreFieldsEditor).
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setCreating(true);
     try {
-      const created = await api.createOfficeModule(office.id, { name, slug });
+      const created = await api.createOfficeModule(office.id, { name, slug, ...SUBJECT_SETTINGS[subject] });
       setName('');
+      setSubject('registry');
       setSlug('');
       setSlugTouched(false);
       load();
@@ -461,6 +462,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
               required
             />
           </div>
+          <RecordSubjectPicker name="module-subject" value={subject} onChange={setSubject} />
           <div className="field span-2" style={{ justifyContent: 'flex-end' }}>
             <button type="submit" className="btn btn--primary" disabled={creating}>
               {creating ? 'Adding...' : 'Add module'}

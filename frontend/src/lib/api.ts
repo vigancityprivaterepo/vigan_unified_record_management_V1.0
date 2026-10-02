@@ -685,7 +685,7 @@ export const api = {
 
   // --- Admin: manage offices + modules + fields -------------------------------
   listOffices: () => request<Office[]>('/admin/offices').then((os) => (registerShortNames(os), os)),
-  createOffice: (data: { name: string; slug: string; description?: string; accentHue?: number; icon?: string }) =>
+  createOffice: (data: { name: string; slug: string; description?: string; accentHue?: number; icon?: string; collectPersonInfo?: boolean; requiresCitizenLink?: boolean }) =>
     request<Office>('/admin/offices', { method: 'POST', body: JSON.stringify(data) }),
   updateOffice: (id: string, data: { name?: string; description?: string | null; isActive?: boolean; accentHue?: number; icon?: string; shortName?: string | null }) =>
     request<Office>(`/admin/offices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

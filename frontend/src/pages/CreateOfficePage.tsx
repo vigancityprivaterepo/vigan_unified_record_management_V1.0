@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RecordSubjectPicker, SUBJECT_SETTINGS, type RecordSubject } from '@/components/RecordSubjectPicker';
 import { OfficeAppearancePicker } from '@/components/OfficeAppearancePicker';
 import { slugifyPreview } from '@/lib/slugify';
 import { api, ApiError, type Office } from '@/lib/api';
@@ -43,6 +44,7 @@ export function CreateOfficeForm({ onCreated }: { onCreated: (office: Office) =>
   const [hue, setHue] = useState(195);
   const [icon, setIcon] = useState('cross');
   const [usedBy, setUsedBy] = useState<Record<number, string>>({});
+  const [subject, setSubject] = useState<RecordSubject>('registry');
 
   // Which hues existing offices already use, so the picker can steer admin
   // toward a color staff won't confuse with another office's workspace.
@@ -67,7 +69,7 @@ export function CreateOfficeForm({ onCreated }: { onCreated: (office: Office) =>
     setError(null);
     setCreating(true);
     try {
-      const office = await api.createOffice({ name, slug, description: description || undefined, accentHue: hue, icon });
+      const office = await api.createOffice({ name, slug, description: description || undefined, accentHue: hue, icon, ...SUBJECT_SETTINGS[subject] });
       setName('');
       setSlug('');
       setSlugTouched(false);
@@ -114,6 +116,7 @@ export function CreateOfficeForm({ onCreated }: { onCreated: (office: Office) =>
         </label>
         <input id="office-description" className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
+      <RecordSubjectPicker name="office-subject" value={subject} onChange={setSubject} />
       <div className="field span-2">
         <OfficeAppearancePicker
           hue={hue}

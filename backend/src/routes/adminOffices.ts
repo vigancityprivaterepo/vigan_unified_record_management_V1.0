@@ -87,6 +87,11 @@ const createOfficeSchema = z.object({
   accentHue: z.number().int().min(0).max(359).optional(),
   icon: z.string().trim().min(1).max(40).optional(),
   shortName: z.string().trim().max(20).nullable().optional(),
+  // The office's first program: whether its records are about a person and
+  // whether that person must be in the registry. Omitted = person, registry
+  // required (the old fixed behaviour).
+  collectPersonInfo: z.boolean().optional(),
+  requiresCitizenLink: z.boolean().optional(),
 });
 
 // Every office gets one "default" module at creation -- most offices only
@@ -120,7 +125,14 @@ adminOfficesRouter.post(
         shortName: parsed.data.shortName || null,
         createdBy: req.session.userId,
         modules: {
-          create: { name: parsed.data.name, slug: 'default', requiresCitizenLink: true, sortOrder: 0 },
+          create: {
+            name: parsed.data.name,
+            slug: 'default',
+            sortOrder: 0,
+            collectPersonInfo: parsed.data.collectPersonInfo ?? true,
+            // Not about a person = nothing to link.
+            requiresCitizenLink: (parsed.data.collectPersonInfo ?? true) ? (parsed.data.requiresCitizenLink ?? true) : false,
+          },
         },
       },
       select: OFFICE_SELECT,
