@@ -1,4 +1,8 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
+import { insertAuditLog } from '../lib/auditLog';
+import { buildDynamicFieldsSchema } from '../lib/dynamicFieldSchema';
+import { uppercaseFreeText } from '../lib/textNormalize';
+import { createOfficeRecord } from './officeSatelliteWriters';
 
 // Relief distribution (CDRRMO): one claim per household per event. A record
 // in the module with slug 'relief_distribution' is refused when anyone in
@@ -67,5 +71,43 @@ export async function assertNoReliefClaim(
       site: hit.site,
       event: hit.event ?? event,
     });
+  }
+}
+
+// Records relief for a citizen already in the registry, straight from the
+// Disaster lists ("Mark as received"): no name/birthdate matching needed,
+// same field validation, uppercase convention, double-claim check and audit
+// entry as the Relief Distribution form.
+export async function recordReliefForPerson(
+  client: PrismaClient,
+  officeId: string,
+  personKey: string,
+  rawFields: unknown,
+  actor: { userId: string; role: string },
+): Promise<
+  | { ok: true; recordId: string }
+  | { ok: false; status: 404 | 400 | 409; code: string; message: string; details?: unknown }
+> {
+  const module = await client.officeModule.findFirst({ where: { officeId, slug: RELIEF_SLUG } });
+  if (!module) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'This office has no Relief Distribution program' };
+  const citizen = await client.citizen.findUnique({ where: { personKey }, select: { isArchived: true } });
+  if (!citizen || citizen.isArchived) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'No such citizen' };
+  const defs = (await client.officeFormField.findMany({ where: { moduleId: module.id } })).filter((f) => f.fieldType !== 'FILE');
+  const parsed = buildDynamicFieldsSchema(defs).safeParse(rawFields);
+  if (!parsed.success) return { ok: false, status: 400, code: 'VALIDATION_ERROR', message: 'Check the relief details', details: parsed.error.flatten() };
+  const data = uppercaseFreeText(parsed.data, defs);
+  try {
+    const record = await client.$transaction(async (tx) => {
+      await assertNoReliefClaim(tx, module, personKey, data);
+      return createOfficeRecord(tx, module.id, personKey, null, data, actor.userId);
+    });
+    await insertAuditLog(client, {
+      tableName: record.table, recordId: record.recordId, action: 'insert', actorUserId: actor.userId, actorRole: actor.role,
+      changedFields: { source: 'disaster_list', personKey },
+    });
+    return { ok: true, recordId: record.recordId };
+  } catch (err) {
+    if (err instanceof ReliefAlreadyClaimedError) return { ok: false, status: 409, code: 'ALREADY_RECEIVED', message: err.message, details: err.conflict };
+    throw err;
   }
 }

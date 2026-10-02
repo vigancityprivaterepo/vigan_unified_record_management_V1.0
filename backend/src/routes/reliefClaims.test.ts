@@ -69,6 +69,30 @@ describe('relief distribution: one claim per household per event', () => {
     expect(member.body.error.message).toContain('HOUSE, HEAD');
   });
 
+  it('marks relief as received from the disaster list, once per household per event', async () => {
+    const evac = await prisma.officeModule.create({ data: { officeId, name: 'Evacuees', slug: 'evacuees' } });
+    try {
+      const head = await prisma.citizen.create({ data: { personLname: 'LIST', personFname: 'HEAD', personBdate: new Date('1950-01-01'), personIsHead: true } });
+      const member = await prisma.citizen.create({ data: { personLname: 'LIST', personFname: 'KID', personBdate: new Date('2023-01-01'), personParentKey: head.personKey } });
+      const agent = await loginAgent(app, 'agri.demo');
+      const base = `/offices/${officeId}/disaster-lists`;
+      const form = await agent.get(`${base}/relief-form`);
+      expect(form.body.moduleId).toBe(moduleId);
+      const fields = { event: 'Typhoon Kristine', distribution_date: '2026-10-02', distribution_site: 'City Hall Gym' };
+      expect((await agent.post(`${base}/relief`).send({ personKey: head.personKey, fields: { ...fields, distribution_date: 'soon' } })).status).toBe(400);
+      expect((await agent.post(`${base}/relief`).send({ personKey: head.personKey, fields })).status).toBe(201);
+      const again = await agent.post(`${base}/relief`).send({ personKey: member.personKey, fields });
+      expect(again.status).toBe(409);
+      expect(again.body.error.message).toContain('LIST, HEAD');
+      const rec = await prisma.officeRecord.findFirstOrThrow({ where: { moduleId, personKey: head.personKey } });
+      expect(rec.data).toMatchObject({ event: 'TYPHOON KRISTINE', distribution_site: 'CITY HALL GYM' });
+      const cswd = await loginAgent(app, 'cswd.demo');
+      expect((await cswd.post(`${base}/relief`).send({ personKey: head.personKey, fields })).status).toBe(403);
+    } finally {
+      await prisma.officeModule.delete({ where: { id: evac.id } });
+    }
+  });
+
   it('lets only one of two simultaneous claims through', async () => {
     await prisma.citizen.create({ data: { personLname: 'SAME', personFname: 'TIME', personBdate: new Date('1980-03-03') } });
     const a = await loginAgent(app, 'agri.demo');

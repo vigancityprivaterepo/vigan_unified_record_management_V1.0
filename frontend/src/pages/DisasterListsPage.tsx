@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { defaultFieldValues, DynamicExtraFields, toSubmitValues, type FieldValue, type FieldValues } from '@/components/DynamicExtraFields';
 import { Icon } from '@/components/Icon';
 import { LoadError } from '@/components/LoadError';
 import { Modal } from '@/components/Modal';
 import { Pagination } from '@/components/Pagination';
-import { api, ApiError, type DisasterBarangay, type DisasterCategory, type ReliefEvent, type ReliefFilter, type Paginated, type VulnerablePerson } from '@/lib/api';
+import { api, ApiError, type DisasterBarangay, type DisasterCategory, type OfficeFormField, type ReliefEvent, type ReliefFilter, type Paginated, type VulnerablePerson } from '@/lib/api';
 
 // Disaster lists for CDRRMO: residents who may need help to evacuate, per
 // barangay and household. Definitions live in backend/src/services/
@@ -28,6 +29,15 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
   const [data, setData] = useState<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean; reliefEvents: ReliefEvent[] } | null>(null);
   // A relief event picked here adds "received relief" counts and filters.
   const [event, setEvent] = useState('');
+  // The office's Relief Distribution form, when it has one: then relief can
+  // be marked as received straight from the lists, and a new event started.
+  const [reliefForm, setReliefForm] = useState<{ moduleId: string; name: string; fields: OfficeFormField[] } | null>(null);
+  const [newEvent, setNewEvent] = useState<string | null>(null);
+  useEffect(() => {
+    if (officeId) api.reliefForm(officeId).then(setReliefForm).catch(() => setReliefForm(null));
+  }, [officeId]);
+  const known = data?.reliefEvents.find((e) => e.event === event);
+  const eventLabel = known?.label ?? (event || undefined);
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const [scope, setScope] = useState<Scope | null>(null);
@@ -72,16 +82,30 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
           {data.usesSampleData && <p className="ws-note">Some of these programs contain sample data, so the counts below are not real yet.</p>}
           <div className="dl-event">
             <label className="field-label" htmlFor="dl-event" style={{ margin: 0 }}>Relief event</label>
-            <select id="dl-event" className="select" value={event} onChange={(e) => setEvent(e.target.value)}>
-              <option value="">None chosen</option>
-              {data.reliefEvents.map((ev) => (
-                <option key={ev.event} value={ev.event}>{ev.label} ({ev.households.toLocaleString()} {ev.households === 1 ? 'household' : 'households'} served{ev.lastDate ? `, last ${ev.lastDate}` : ''})</option>
-              ))}
-            </select>
+            {newEvent === null ? (
+              <select id="dl-event" className="select" value={event} onChange={(e) => (e.target.value === '__new' ? setNewEvent('') : setEvent(e.target.value))}>
+                <option value="">None chosen</option>
+                {event && !known && <option value={event}>{event} (new, nothing recorded yet)</option>}
+                {data.reliefEvents.map((ev) => (
+                  <option key={ev.event} value={ev.event}>{ev.label} ({ev.households.toLocaleString()} {ev.households === 1 ? 'household' : 'households'} served{ev.lastDate ? `, last ${ev.lastDate}` : ''})</option>
+                ))}
+                {reliefForm && <option value="__new">Start a new relief event...</option>}
+              </select>
+            ) : (
+              <form className="dl-new-event" onSubmit={(e) => { e.preventDefault(); if (newEvent.trim()) { setEvent(newEvent.trim()); setNewEvent(null); } }}>
+                <input id="dl-event" className="input" autoFocus value={newEvent} maxLength={120} placeholder="Event name, e.g. Typhoon Kristine" onChange={(e) => setNewEvent(e.target.value)} />
+                <button type="submit" className="btn btn--primary" disabled={!newEvent.trim()}>Use this event</button>
+                <button type="button" className="btn btn--ghost" onClick={() => setNewEvent(null)}>Cancel</button>
+              </form>
+            )}
             <span className="ws-kpi-sub">
-              {data.reliefEvents.length === 0
-                ? 'No relief has been recorded yet. Record it in CDRRMO, Relief Distribution.'
-                : 'Choose an event to see which of these households have not received relief yet.'}
+              {reliefForm
+                ? event
+                  ? 'Open a barangay and use "Mark received" as each household gets relief.'
+                  : 'Choose an event, or start a new one, then mark households as they receive relief.'
+                : data.reliefEvents.length === 0
+                  ? 'No relief has been recorded yet. CDRRMO records it from its own Disaster lists.'
+                  : 'Choose an event to see which of these households have not received relief yet.'}
             </span>
           </div>
           <div className="ws-kpis">
@@ -157,13 +181,17 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
         </>
       )}
 
-      {scope && <PeopleModal officeId={officeId} event={event || undefined} eventLabel={data?.reliefEvents.find((e) => e.event === event)?.label} scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
-      {printing?.code && <PrintSheet officeId={officeId} event={event || undefined} eventLabel={data?.reliefEvents.find((e) => e.event === event)?.label} scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
+      {scope && <PeopleModal officeId={officeId} event={event || undefined} eventLabel={eventLabel} reliefForm={reliefForm} onReliefSaved={() => setAttempt((n) => n + 1)} scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
+      {printing?.code && <PrintSheet officeId={officeId} event={event || undefined} eventLabel={eventLabel} scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
     </div>
   );
 }
 
-function PeopleModal({ officeId, event, eventLabel, scope, onPrint, onClose }: { officeId?: string; event?: string; eventLabel?: string; scope: Scope; onPrint: () => void; onClose: () => void }) {
+function PeopleModal({ officeId, event, eventLabel, reliefForm, onReliefSaved, scope, onPrint, onClose }: {
+  officeId?: string; event?: string; eventLabel?: string; scope: Scope; onPrint: () => void; onClose: () => void;
+  reliefForm?: { moduleId: string; name: string; fields: OfficeFormField[] } | null; onReliefSaved?: () => void;
+}) {
+  const [marking, setMarking] = useState<VulnerablePerson | null>(null);
   const [category, setCategory] = useState<DisasterCategory | undefined>(undefined);
   const [relief, setRelief] = useState<ReliefFilter['relief']>(undefined);
   const rf: ReliefFilter = event ? { event, relief } : {};
@@ -241,7 +269,14 @@ function PeopleModal({ officeId, event, eventLabel, scope, onPrint, onClose }: {
                         {!scope.code && <td>{p.barangay ?? 'No barangay'}</td>}
                         <td>{p.street ?? ''}</td>
                         <td>{p.evacuationCenter ?? ''}</td>
-                        {event && <td>{p.reliefReceived ? 'Received' : <strong>Not yet</strong>}</td>}
+                        {event && (
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {p.reliefReceived ? 'Received' : <strong>Not yet</strong>}
+                            {!p.reliefReceived && newHousehold && reliefForm && officeId && (
+                              <> <button type="button" className="btn btn--ghost dl-mark" onClick={() => setMarking(p)}>Mark received</button></>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -255,6 +290,18 @@ function PeopleModal({ officeId, event, eventLabel, scope, onPrint, onClose }: {
           This list includes disability and pregnancy, which are sensitive personal information (RA 10173). Opening, printing and exporting it is recorded in the audit log. Use it only for disaster response.
         </p>
       </div>
+      {marking && reliefForm && officeId && event && (
+        <Modal title="Mark relief as received" eyebrow={eventLabel ?? event} onClose={() => setMarking(null)}>
+          <MarkReliefForm
+            officeId={officeId}
+            person={marking}
+            eventLabel={eventLabel ?? event}
+            fields={reliefForm.fields}
+            onCancel={() => setMarking(null)}
+            onSaved={() => { setMarking(null); setAttempt((n) => n + 1); onReliefSaved?.(); }}
+          />
+        </Modal>
+      )}
     </Modal>
   );
 }
@@ -321,5 +368,53 @@ function PrintSheet({ officeId, event, eventLabel, scope, onDone }: { officeId?:
       </table>
     </div>,
     document.body,
+  );
+}
+
+// "Mark received": the office's own Relief Distribution form for one
+// person, with the event filled in. The server refuses a second claim from
+// the same household for the same event and says who already received.
+function MarkReliefForm({ officeId, person, eventLabel, fields, onSaved, onCancel }: {
+  officeId: string; person: VulnerablePerson; eventLabel: string; fields: OfficeFormField[]; onSaved: () => void; onCancel: () => void;
+}) {
+  const shown = fields.filter((f) => f.key !== 'event');
+  const [values, setValues] = useState<FieldValues>(() => {
+    const v = defaultFieldValues(shown);
+    if ('distribution_date' in v) v.distribution_date = new Date().toISOString().slice(0, 10);
+    return v;
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await api.markReliefReceived(officeId, person.personKey, { ...toSubmitValues(shown, values), event: eventLabel });
+      onSaved();
+    } catch (err) {
+      const d = err instanceof ApiError ? (err.details as { fieldErrors?: Record<string, string[]> } | null) : null;
+      const first = d?.fieldErrors ? Object.entries(d.fieldErrors)[0] : undefined;
+      const label = first ? fields.find((f) => f.key === first[0])?.label ?? first[0] : null;
+      setError(first ? `${label}: ${first[1].join(', ')}` : err instanceof ApiError ? err.message : 'Could not save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p className="ws-note">
+        <strong>{person.householdHead ? `Household of ${person.householdHead}` : person.name}</strong>
+        {person.barangay ? `, ${person.barangay}` : ''}. One claim per household for <strong>{eventLabel}</strong>.
+      </p>
+      <DynamicExtraFields fields={shown} values={values} onChange={(key: string, value: FieldValue) => setValues((v) => ({ ...v, [key]: value }))} />
+      {error && <div className="alert danger"><div className="body">{error}</div></div>}
+      <div className="form-actions">
+        <button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Saving...' : 'Save as received'}</button>
+        <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   );
 }

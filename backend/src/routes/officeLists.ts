@@ -7,6 +7,8 @@ import {
   renewalsCsv, renewalsList, renewalsSummary, requireDisasterAccess, requireRenewalsAccess,
 } from './listHandlers';
 import { BUSINESS_PERMITS_SLUG } from '../services/businessRenewals';
+import { recordReliefForPerson, RELIEF_SLUG } from '../services/reliefClaims';
+import { sendError } from '../lib/errors';
 
 // An office's own lists (owner decision, 2026-10-01: offices see these for
 // their own programs):
@@ -45,3 +47,28 @@ officeListsRouter.get('/:officeId/disaster-lists/people.csv', requireOfficeAcces
 officeListsRouter.get('/:officeId/business-renewals', requireOfficeAccess, requireRenewalsAccess, renewalsSummary);
 officeListsRouter.get('/:officeId/business-renewals/list', requireOfficeAccess, requireRenewalsAccess, renewalsList);
 officeListsRouter.get('/:officeId/business-renewals/list.csv', requireOfficeAccess, requireRenewalsAccess, renewalsCsv);
+
+// Recording relief from the Disaster lists: the office's Relief
+// Distribution form (null when the office has none), and "Mark as received"
+// for one citizen on the list.
+officeListsRouter.get('/:officeId/disaster-lists/relief-form', requireOfficeAccess, requireDisasterAccess, asyncHandler(async (req, res) => {
+  const client = getPrismaForRole(req.session.role!);
+  const module = await client.officeModule.findFirst({ where: { officeId: req.params.officeId!, slug: RELIEF_SLUG }, select: { id: true, name: true } });
+  if (!module) { res.json(null); return; }
+  const fields = await client.officeFormField.findMany({
+    where: { moduleId: module.id, NOT: { fieldType: 'FILE' } },
+    select: { id: true, key: true, label: true, fieldType: true, options: true, isRequired: true, sortOrder: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+  res.json({ moduleId: module.id, name: module.name, fields });
+}));
+
+officeListsRouter.post('/:officeId/disaster-lists/relief', requireOfficeAccess, requireDisasterAccess, asyncHandler(async (req, res) => {
+  const personKey = typeof req.body?.personKey === 'string' ? req.body.personKey : '';
+  if (!/^[0-9a-f-]{36}$/i.test(personKey)) { sendError(res, 400, 'VALIDATION_ERROR', 'personKey is required'); return; }
+  const result = await recordReliefForPerson(getPrismaForRole(req.session.role!), req.params.officeId!, personKey, req.body.fields ?? {}, {
+    userId: req.session.userId!, role: req.session.role!,
+  });
+  if (!result.ok) { sendError(res, result.status, result.code, result.message, result.details); return; }
+  res.status(201).json({ recordId: result.recordId });
+}));

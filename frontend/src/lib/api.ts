@@ -653,6 +653,10 @@ export const api = {
     request<Paginated<RenewalBusiness>>(`${listBase(officeId)}/business-renewals/list${queryString({ page, ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`),
   exportRenewals: (officeId: string | undefined, f: RenewalFilters) =>
     download(`${listBase(officeId)}/business-renewals/list.csv${queryString({ ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`, 'business-renewals.csv'),
+  reliefForm: (officeId: string) =>
+    request<{ moduleId: string; name: string; fields: OfficeFormField[] } | null>(`/offices/${officeId}/disaster-lists/relief-form`),
+  markReliefReceived: (officeId: string, personKey: string, fields: Record<string, unknown>) =>
+    request<{ recordId: string }>(`/offices/${officeId}/disaster-lists/relief`, { method: 'POST', body: JSON.stringify({ personKey, fields }) }),
   disasterSummary: (officeId?: string, event?: string) =>
     request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean; reliefEvents: ReliefEvent[] }>(`${listBase(officeId)}/disaster-lists${queryString({ event })}`),
   disasterPeople: (officeId: string | undefined, page: number, barangayCode?: string, category?: DisasterCategory, rf: ReliefFilter = {}) =>
