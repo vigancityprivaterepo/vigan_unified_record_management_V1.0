@@ -7,6 +7,7 @@ import {
   renewalsCsv, renewalsList, renewalsSummary, requireDisasterAccess, requireRenewalsAccess,
 } from './listHandlers';
 import { BUSINESS_PERMITS_SLUG } from '../services/businessRenewals';
+import { officeTodo } from '../services/officeTodo';
 import { recordReliefForPerson, RELIEF_SLUG } from '../services/reliefClaims';
 import { sendError } from '../lib/errors';
 
@@ -71,4 +72,9 @@ officeListsRouter.post('/:officeId/disaster-lists/relief', requireOfficeAccess, 
   });
   if (!result.ok) { sendError(res, result.status, result.code, result.message, result.details); return; }
   res.status(201).json({ recordId: result.recordId });
+}));
+
+// The office's to-do list for its Home page (counts only, no names).
+officeListsRouter.get('/:officeId/todo', requireOfficeAccess, asyncHandler(async (req, res) => {
+  res.json(await officeTodo(getPrismaForRole(req.session.role!), req.params.officeId!));
 }));

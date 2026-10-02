@@ -580,6 +580,9 @@ export type DataRequest = {
 // Bulk import (office staff): see backend/src/services/officeImport.ts.
 export type ImportRowResult = { row: number; name: string | null; outcome: string; errors?: string[] };
 
+// An office's Home to-do list (counts only): backend services/officeTodo.ts.
+export type TodoItem = { key: string; count: number; label: string; detail: string; go: string };
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -647,6 +650,7 @@ export const api = {
     request<DataRequest>('/admin/privacy/requests', { method: 'POST', body: JSON.stringify(input) }),
   updateDataRequest: (id: string, input: { status?: DataRequest['status']; response?: string | null; closedOn?: string | null }) =>
     request<DataRequest>(`/admin/privacy/requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  officeTodo: (officeId: string) => request<TodoItem[]>(`/offices/${officeId}/todo`),
   officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),
   renewalSummary: (officeId?: string) => request<RenewalSummary>(`${listBase(officeId)}/business-renewals`),
   renewalList: (officeId: string | undefined, page: number, f: RenewalFilters) =>

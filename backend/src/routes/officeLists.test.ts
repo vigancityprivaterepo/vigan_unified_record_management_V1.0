@@ -63,6 +63,19 @@ describe('office lists (/offices/:officeId/program-gaps, /disaster-lists)', () =
     expect(log?.changedFields).toMatchObject({ view: 'disaster-list:people', officeId: agri.id });
   });
 
+  it("lists an office's to-dos as counts, only from its own rules", async () => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 70);
+    await prisma.citizen.create({ data: { personLname: 'Todo', personFname: 'Senior', personBdate: d } });
+    const cswdAgent = await loginAgent(app, 'cswd.demo');
+    const res = await cswdAgent.get(`/offices/${cswd.id}/todo`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ key: `gap:${cswdRule}`, count: 1, label: 'Seniors not listed', detail: 'Not yet in this program; open the list to follow up', go: 'gaps' }]);
+    expect((await cswdAgent.get(`/offices/${agri.id}/todo`)).status).toBe(403);
+    // Agriculture's farmer rule matches the same senior (18+); it has no evacuees in a center.
+    const agriTodo = (await (await loginAgent(app, 'agri.demo')).get(`/offices/${agri.id}/todo`)).body;
+    expect(agriTodo.map((t: { key: string }) => t.key)).toEqual([`gap:${agriRule}`]);
+  });
+
   it('admin still sees every rule, including switched-off ones', async () => {
     const agent = await loginAgent(app, 'admin.demo');
     const res = await agent.get('/admin/program-gaps');

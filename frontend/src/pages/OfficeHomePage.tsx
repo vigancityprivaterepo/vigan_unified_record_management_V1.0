@@ -6,7 +6,7 @@ import { api, type Office, type OfficeModule, type OfficeRecordListItem } from '
 import { initials, moduleIcon } from '@/lib/officeTheme';
 import { WidgetCard } from '@/components/WidgetCard';
 import { LoadError } from '@/components/LoadError';
-import type { DashboardWidget } from '@/lib/api';
+import type { DashboardWidget, TodoItem } from '@/lib/api';
 
 type Recent = OfficeRecordListItem & { moduleName: string };
 
@@ -36,6 +36,16 @@ export function OfficeHomePage({ officeId, office: _office, modules, userName, c
       });
   }, [officeId, pinnedAttempt]);
 
+  // What needs attention, from Program gaps, Disaster lists, Business
+  // renewals and duplicate review (counts only; the lists hold the names).
+  const [todo, setTodo] = useState<TodoItem[] | null>(null);
+  const [todoError, setTodoError] = useState<unknown>(null);
+  const [todoAttempt, setTodoAttempt] = useState(0);
+  useEffect(() => {
+    setTodoError(null);
+    api.officeTodo(officeId).then(setTodo).catch((err) => { setTodo(null); setTodoError(err); });
+  }, [officeId, todoAttempt]);
+
   useEffect(() => {
     Promise.all(
       modules.map((m) => api.myOfficeModuleRecords(officeId, m.id).then((p) => p.items.slice(0, 4).map((r) => ({ ...r, moduleName: m.name }))).catch(() => [] as Recent[])),
@@ -53,6 +63,22 @@ export function OfficeHomePage({ officeId, office: _office, modules, userName, c
         <div className="ws-eyebrow" style={{ marginBottom: 10 }}>{today}</div>
         <h1 className="hero-title" style={{ fontSize: 26, margin: 0 }}>{greeting}, {userName.split(/\s+/)[0]}</h1>
       </div>
+
+      {todoError != null && <LoadError what="your office's to-do list" error={todoError} onRetry={() => setTodoAttempt((n) => n + 1)} />}
+      {todo && todo.length > 0 && (
+        <section className="ws-card ws-card--pad ws-stack-y" aria-labelledby="todo-title">
+          <h2 id="todo-title" style={{ margin: 0, fontSize: 17 }}>Needs your attention</h2>
+          <div>
+            {todo.map((t) => (
+              <button key={t.key} type="button" className="oh-todo" onClick={() => onGo(t.go as OfficeTab)}>
+                <strong>{t.count.toLocaleString()}</strong>
+                <span><span className="oh-todo-label">{t.label}</span><span className="oh-todo-detail">{t.detail}</span></span>
+                <Icon name="chevR" size={16} />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="ws-action-grid">
         {modules.map((m) => (

@@ -558,3 +558,12 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .mo-item strong + span { display: block; font-size: 13px; color: var(--t-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mo-swatch { width: 22px; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; color: #fff; }
 .mo-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+
+/* Office Home: "Needs your attention" */
+.oh-todo { display: grid; grid-template-columns: 72px minmax(0, 1fr) 16px; gap: 14px; align-items: center; width: 100%; padding: 10px 6px; border: 0; border-top: 1px solid var(--border-soft); background: transparent; color: var(--t-base); font: inherit; text-align: left; cursor: pointer; }
+.oh-todo:first-child { border-top: 0; }
+.oh-todo:hover { background: var(--bg-hover); }
+.oh-todo > strong { font-family: var(--font-display); font-size: 24px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.oh-todo > svg { color: var(--t-muted); }
+.oh-todo-label { display: block; font-weight: 600; }
+.oh-todo-detail { display: block; font-size: 13px; color: var(--t-muted); }
