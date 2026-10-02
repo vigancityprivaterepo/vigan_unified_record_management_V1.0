@@ -47,6 +47,14 @@ describe('/admin/insights', () => {
     await prisma.$disconnect();
   });
 
+  it('trend accepts a month range (it used to fail with a database error)', async () => {
+    const admin = await loginAgent(app, 'admin.demo');
+    const month = new Date().toISOString().slice(0, 7);
+    const res = await admin.get(`/admin/insights/trend?from=${month}&to=${month}`);
+    expect(res.status).toBe(200);
+    expect(res.body.every((p: { month: string }) => p.month === month)).toBe(true);
+  });
+
   it('rejects non-admin roles', async () => {
     const agent = await loginAgent(app, 'cswd.demo');
     const res = await agent.get('/admin/insights/summary');

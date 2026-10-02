@@ -196,8 +196,10 @@ function monthRangeWhere(filters: Pick<InsightsFilterParams, 'from' | 'to'>, fie
 
 function monthRangeSql(fromCol: Prisma.Sql, filters: Pick<InsightsFilterParams, 'from' | 'to'>): Prisma.Sql {
   const parts: Prisma.Sql[] = [];
-  if (filters.from) parts.push(Prisma.sql`${fromCol} >= ${filters.from}::text || '-01'::text::date`);
-  if (filters.to) parts.push(Prisma.sql`${fromCol} < (${filters.to}::text || '-01'::text::date + interval '1 month')`);
+  // Parenthesized: without them '-01' alone was cast to a date and every
+  // month filter failed ("timestamp >= text").
+  if (filters.from) parts.push(Prisma.sql`${fromCol} >= ((${filters.from}::text || '-01')::date)`);
+  if (filters.to) parts.push(Prisma.sql`${fromCol} < ((${filters.to}::text || '-01')::date + interval '1 month')`);
   return parts.length ? Prisma.sql`AND ${Prisma.join(parts, ' AND ')}` : Prisma.empty;
 }
 
