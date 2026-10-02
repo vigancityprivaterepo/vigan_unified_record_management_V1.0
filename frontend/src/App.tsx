@@ -264,7 +264,7 @@ export default function App() {
 
         {helpOpen && (
           <Modal title="How this works" eyebrow={isOfficeStaff ? office?.name ?? 'Office' : 'Administration console'} onClose={() => setHelpOpen(false)}>
-            <HelpContent role={session.role} />
+            <HelpContent role={session.role} lists={officeLists} modules={modules ?? []} />
           </Modal>
         )}
 

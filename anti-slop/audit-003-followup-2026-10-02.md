@@ -1,7 +1,7 @@
 # antislop audit 003: follow-up
 
 Date: 2026-10-02
-Approved for fixing: #1, #2, #3 (first round); #4 and #8 (second round). Numbers 5, 6 and 7 were not touched.
+Approved for fixing: #1, #2, #3 (first round); #4 and #8 (second round); #5 (third round). Numbers 6 and 7 were not touched (#6 was covered by #4).
 
 ## Fixed
 
@@ -20,6 +20,14 @@ Approved for fixing: #1, #2, #3 (first round); #4 and #8 (second round). Numbers
 
 Code names (variables, routes, database columns) were not renamed; only text people read.
 
+## Third round (#5)
+
+| # | Rule | What changed |
+|---|---|---|
+| 5 | C-2 | Help rewritten to match the app as it is. Admin: the Overview entry describes barangay coverage (the removed share-of-workload chart is gone), and new entries for Visualizations, Insights, Citizens and Households (with the Privacy section), Program gaps, Disaster lists, Business renewals, Staff accounts, Matching settings and Privacy (14 entries). Office staff: Home and its "Needs your attention" list, Correct a record (Edit), Remove a mistake (Archive, Restore), Import from a spreadsheet and Charts, plus Program gaps, Disaster lists, Business renewals and Link to registry only when the office has that page. Every entry names buttons and pages exactly as they appear. |
+
+Checked in Edge: CDRRMO staff see 9 entries including Disaster lists and not Business renewals; BPLO staff see 10 including Business renewals and Link to registry and not Disaster lists; the admin sees 14, the last one reachable on a 900px-tall screen; Help fits at 360px.
+
 ## Delivery Gate
 
 - R-02: no ` -- ` or em dash left in on-screen text or server messages (search over `.ts` and `.tsx`, comments excluded).
@@ -28,4 +36,4 @@ Code names (variables, routes, database columns) were not renamed; only text peo
 
 ## Still open
 
-#5, #6 and #7 from `audit-003-2026-10-02.md`, and whether to restore the page descriptions removed outside this session.
+#7 from `audit-003-2026-10-02.md`, and whether to restore the page descriptions removed outside this session.
