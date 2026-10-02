@@ -29,8 +29,6 @@ function monthYear(iso: string): string {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
 }
 
-// The record's own form values, in form order, as one short line
-// ("OSCA-2011-0413 · Social pension"). File uploads are left out.
 function recordSummary(r: OfficeRecord): string {
   return r.module.formFields
     .filter((f) => f.fieldType !== 'FILE')
@@ -46,9 +44,6 @@ function recordSummary(r: OfficeRecord): string {
     .join(' · ');
 }
 
-// Admin's master registry: search list on the left, one citizen's profile
-// on the right -- every office's records for them, their household, and
-// their (encrypted-at-rest) government IDs.
 export function CitizensPage({ initialQuery = '', onNavigate }: { initialQuery?: string; onNavigate?: (tab: AdminTab, filter?: string) => void } = {}) {
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebouncedValue(query);
@@ -63,8 +58,7 @@ export function CitizensPage({ initialQuery = '', onNavigate }: { initialQuery?:
       .searchCitizens(q, p)
       .then((r) => {
         setResults(r);
-        // A profile only opens when a name is clicked; a new search closes one
-        // that's no longer in the results.
+        
         setSelectedKey((cur) => (cur && r.items.some((c) => c.personKey === cur) ? cur : null));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load citizens'));
@@ -281,9 +275,6 @@ function maskId(value: string): string {
   return value.replace(/[A-Za-z0-9]/g, (ch, i: number) => (i === value.length - 1 ? ch : '•'));
 }
 
-// Encrypted at rest (backend/src/lib/encryption.ts) -- decrypted only for
-// this admin-only view, and masked by default here too since it's still
-// sensitive to have visible on a shared screen even for an authorized viewer.
 function GovernmentIdsSection({
   personKey,
   sss,

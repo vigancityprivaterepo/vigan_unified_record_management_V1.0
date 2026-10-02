@@ -4,10 +4,6 @@ import { LoadError } from '@/components/LoadError';
 import { Pagination } from '@/components/Pagination';
 import { api, ApiError, type Paginated, type RenewalBusiness, type RenewalFilters, type RenewalSummary } from '@/lib/api';
 
-// Business renewals: which businesses have not renewed their permit, from
-// BPLO's Business Permits records. Definitions are in
-// backend/src/services/businessRenewals.ts and repeated in plain words here.
-// officeId set = the office that runs Business Permits (BPLO).
 export function BusinessRenewalsPage({ officeId }: { officeId?: string } = {}) {
   const [summary, setSummary] = useState<RenewalSummary | null>(null);
   const [error, setError] = useState<unknown>(null);

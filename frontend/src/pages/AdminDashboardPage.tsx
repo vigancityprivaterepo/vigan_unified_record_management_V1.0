@@ -3,13 +3,7 @@ import { KpiCard, type KpiTile } from '@/components/KpiCard';
 import { WidgetCard } from '@/components/WidgetCard';
 import { api, ApiError, type DashboardSummary, type DashboardWidget } from '@/lib/api';
 
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
-// Generic "fetch on mount, track loading/error" hook. Both sections on this
-// page (and likely other admin pages) follow the exact same
-// fetch -> setData / catch -> setError shape, so it's pulled out once here.
 function useApiResource<T>(fetchFn: () => Promise<T>, fallbackMessage: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,17 +18,12 @@ function useApiResource<T>(fetchFn: () => Promise<T>, fallbackMessage: string) {
   return { data, error };
 }
 
-// Shared loading/error rendering so each section doesn't re-implement the
-// same two-line if/if block. Renders nothing once data has arrived.
+
 function AsyncState({ error, loading }: { error: string | null; loading: boolean }) {
   if (error) return <div className="field-error">{error}</div>;
   if (loading) return <span className="spinner" />;
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export function AdminDashboardPage() {
   return (
@@ -51,9 +40,7 @@ export function AdminDashboardPage() {
   );
 }
 
-// Org-wide numbers at a glance, before admin digs into any chart below --
-// total non-archived citizens, active offices/modules, and this month's
-// intake volume across every office.
+
 function SummaryKpis() {
   const { data: summary, error } = useApiResource<DashboardSummary>(
     api.dashboardSummary,
@@ -98,10 +85,7 @@ function SummaryKpis() {
   );
 }
 
-// Read-only display of whatever's been built on the Visualizations pages --
-// no builder form or delete here, that's separate, dedicated modules (see
-// CreateVisualizationPage.tsx / AllVisualizationsPage.tsx) so the Dashboard
-// stays a viewing surface.
+
 function SavedVisualizations() {
   const { data: widgets, error } = useApiResource<DashboardWidget[]>(
     api.listDashboardWidgets,

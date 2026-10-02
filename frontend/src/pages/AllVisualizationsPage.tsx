@@ -51,9 +51,6 @@ function officesOf(w: DashboardWidget): string[] {
 
 const CROSS = '__cross__';
 
-// The admin Visualizations page: every saved chart in one grid, filtered by
-// office (chips) and by whether it's on the dashboard. This replaces the old
-// separate Dashboard page.
 export function AllVisualizationsPage({ initialQuery }: { initialQuery?: string } = {}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>

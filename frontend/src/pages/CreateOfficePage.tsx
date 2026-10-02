@@ -8,8 +8,6 @@ function shortName(name: string): string {
   return name.replace(/^(City|Municipal)\s+/i, '').split(/\s+/).slice(0, 2).join(' ');
 }
 
-// Standalone page, kept for the 'offices:create' tab. The Offices page opens
-// the same CreateOfficeForm in a popup.
 export function CreateOfficePage() {
   const [created, setCreated] = useState<string | null>(null);
 
@@ -46,8 +44,7 @@ export function CreateOfficeForm({ onCreated }: { onCreated: (office: Office) =>
   const [usedBy, setUsedBy] = useState<Record<number, string>>({});
   const [subject, setSubject] = useState<RecordSubject>('registry');
 
-  // Which hues existing offices already use, so the picker can steer admin
-  // toward a color staff won't confuse with another office's workspace.
+
   useEffect(() => {
     api
       .listOffices()

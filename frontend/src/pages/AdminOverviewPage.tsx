@@ -6,12 +6,7 @@ import type { AdminTab } from '@/components/shell/AdminSidebar';
 import { api, ApiError, type InsightsSummary, type OfficeBreakdown, type SankeyData } from '@/lib/api';
 import { seriesColor } from '@/lib/chartTheme';
 
-// City overview. Its job (owner, 2026-10-01): show which barangays the city's
-// programs reach and which they miss. So the order is KPIs, then barangay
-// coverage (fewest citizens first), then office activity per month, then
-// citizens served by more than one program. Picking a barangay filters the
-// charts below it. Every chart reads already-shaped data; this page owns the
-// filter and the fetches.
+
 export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab) => void } = {}) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -62,8 +57,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
   if (!data) return <span className="spinner" />;
 
   const offices = data.offices;
-  // Max 4 colored series (charts guide): the 4 busiest offices get the
-  // palette, every other office is muted grey.
+  
   const rank = [...offices]
     .map((o) => ({ id: o.id, t: data.months.reduce((a, m) => a + (m.counts[o.id] ?? 0), 0) }))
     .sort((a, b) => b.t - a.t)

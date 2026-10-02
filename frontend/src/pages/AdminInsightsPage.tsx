@@ -19,12 +19,7 @@ import {
   type TrendPoint,
 } from '@/lib/api';
 
-// Overview -> pattern -> detail: a headline KPI row, then relationship
-// charts (Sankey, barangay ranking, trend) that cross-filter each other and
-// the drill-down table/household panel below. Charts only ever receive
-// already-shaped data as props; this page owns filter state and every
-// fetch, one endpoint per chart, each refetching only on the filter fields
-// it actually uses.
+
 export type InsightsFilterState = {
   barangayCode: string | null;
   bucketModuleIds: string[] | null;
@@ -40,17 +35,12 @@ function hasActiveFilter(f: InsightsFilterState): boolean {
 
 export function AdminInsightsPage() {
   const [filters, setFilters] = useState<InsightsFilterState>(EMPTY_FILTERS);
-  // Tracked separately from `filters` -- "Reset filters" clears the
-  // aggregate charts but leaves whichever household is open alone, since
-  // browsing a specific household is a distinct action from filtering.
+ 
   const [selectedHeadKey, setSelectedHeadKey] = useState<string | null>(null);
-  // Lifted out of the combinations section so HouseholdTree can color its
-  // category tags with the same module order, and so the filter chip can
-  // name the selected combination.
+  
   const [sankeyData, setSankeyData] = useState<SankeyData | null>(null);
   const orderedModuleIds = sankeyData?.modules.map((m) => m.id) ?? [];
-  // The four cross-office answers (underserved barangays, household reach,
-  // program pace, data quality), one fetch for the three new charts.
+  
   const [questions, setQuestions] = useState<CityInsights | null>(null);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [barangayNames, setBarangayNames] = useState<Record<string, string>>({});
@@ -303,9 +293,7 @@ function ComboSection({
         onDataLoaded(d);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load program combinations'));
-    // onDataLoaded is a page-level setState setter, stable across renders --
-    // omitted from deps so this effect only re-runs on the filter it cares about.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [barangayCode]);
 
   if (error || !data) return <AsyncState error={error} loading={!data} />;
@@ -351,8 +339,7 @@ function TrendSection({ selectedMonth: _selectedMonth, onMonthClick }: { selecte
 
   useEffect(() => {
     api
-      // Last 24 months: imported records keep their original dates back to
-      // the 1990s, and a decades-long axis flattens the months that matter.
+      
       .insightsTrend({ from: monthsAgo(23) })
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load trend'));

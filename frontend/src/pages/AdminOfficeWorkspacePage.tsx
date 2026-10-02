@@ -4,9 +4,7 @@ import { api, type Office, type OfficeModule } from '@/lib/api';
 import { VisualizationBoard } from '@/pages/AllVisualizationsPage';
 import { DynamicOfficeRecordsPage } from '@/pages/DynamicOfficeRecordsPage';
 
-// Admin's look into one office: its records (read-only, one program at a
-// time) and its charts. The shell sets --hue to this office's accent, so the
-// page takes on that office's color while the admin rail stays dark.
+
 export function AdminOfficeWorkspacePage({ office }: { office: Office }) {
   const [modules, setModules] = useState<OfficeModule[] | null>(null);
   const [active, setActive] = useState(0);

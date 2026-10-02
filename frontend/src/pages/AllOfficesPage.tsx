@@ -40,16 +40,6 @@ const FIELD_TYPES: OfficeFieldType[] = [
   'FILE',
 ];
 
-// Admin self-service for every office -- CSWD/Agriculture/Civil Registry
-// included, as of the offices-as-modules unification, not just ones added
-// beyond the original three. Each office can have one or more modules
-// (most have exactly one; CSWD has three, Civil Registry has two), and
-// each module has its own intake form built from a fixed field-type
-// palette. See backend/prisma/schema.prisma's comment on the Office model
-// for why every office shares one office_staff Postgres role instead of
-// its own. Creating an office is a separate page (CreateOfficePage.tsx) --
-// this one is purely list + manage, so it doesn't re-fetch/hold create-form
-// state it doesn't need.
 export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, filter?: string) => void } = {}) {
   const [offices, setOffices] = useState<Office[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +83,7 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
       setManagingId(null);
       load();
     } catch (err) {
-      // Every office starts with an empty default module -- that alone
-      // shouldn't stop admin from deleting an office they just created by
-      // mistake, so offer to remove empty modules along with it.
+      
       if (err instanceof ApiError && err.code === 'OFFICE_HAS_MODULES' && err.details && typeof err.details === 'object' && 'moduleCount' in err.details) {
         const moduleCount = (err.details as { moduleCount: number }).moduleCount;
         if (window.confirm(`This office has ${moduleCount} module(s). Delete them too (only if empty), then the office?`)) {
@@ -269,9 +257,7 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
   );
 }
 
-// Fix the office's name or description (e.g. a typo like "Assesor"). The
-// module name / slug stays fixed -- it's the office's stable identifier.
-// The backend's audit entry keeps the previous name and description.
+
 function OfficeDetailsEditor({ office, onSaved }: { office: Office; onSaved: () => void }) {
   const [name, setName] = useState(office.name);
   const [description, setDescription] = useState(office.description ?? '');
@@ -422,10 +408,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
     if (!slugTouched) setSlug(slugifyPreview(value));
   }
 
-  // Creating asks for name, identifier and what each record is about
-  // (RecordSubjectPicker: a registry resident, a person with an optional
-  // link, or not a person). Which optional core fields it gathers is set
-  // afterward via Configure (ModuleCoreFieldsEditor).
+  
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -587,17 +570,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
   );
 }
 
-// Toggles which of the optional core intake fields (sex/civil status/
-// street/barangay) this module collects -- last/first/middle name and
-// birthdate are never optional (resolvePerson() needs them) so they're not
-// shown here at all.
-//
-// Each checkbox saves itself the moment it's clicked -- no separate Save
-// button to remember, matching every other toggle in this app (Deactivate/
-// Reactivate/Delete all act immediately too). A form with a Save button
-// here was a real trap: unchecking a box and then just closing the modal
-// (the natural way to "finish") silently discarded the change, which read
-// as "this doesn't save at all."
+
 function ModuleCoreFieldsEditor({
   office,
   officeModule,
@@ -635,9 +608,7 @@ function ModuleCoreFieldsEditor({
     }
   }
 
-  // Small inline status next to whichever checkbox was just touched -- the
-  // spinner alone used to vanish with nothing left behind, so there was no
-  // way to tell "autosaved" apart from "did nothing."
+  
   function saveStatus(key: string) {
     if (savingKey === key) return <span className="spinner sm" style={{ marginLeft: 8 }} />;
     if (savedKey === key) {
