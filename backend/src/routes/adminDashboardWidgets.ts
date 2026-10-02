@@ -159,8 +159,8 @@ export async function validateWidgetPayload(
 
   const modules = await client.officeModule.findMany({ where: { id: { in: sourceModuleIds } } });
   if (modules.length !== sourceModuleIds.length) {
-    sendError(res, 400, 'VALIDATION_ERROR', 'One or more modules were not found', {
-      sourceModuleIds: ['One or more modules were not found'],
+    sendError(res, 400, 'VALIDATION_ERROR', 'One or more programs were not found', {
+      sourceModuleIds: ['One or more programs were not found'],
     });
     return null;
   }
@@ -176,8 +176,8 @@ export async function validateWidgetPayload(
     const key = dim.slice('field:'.length);
     const field = await client.officeFormField.findFirst({ where: { moduleId: { in: sourceModuleIds }, key } });
     if (!field) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'No selected module has this field', {
-        groupBy: [`No selected module has the field "${key}"`],
+      sendError(res, 400, 'VALIDATION_ERROR', 'No selected program has this field', {
+        groupBy: [`No selected program has the field "${key}"`],
       });
       return null;
     }
@@ -192,8 +192,8 @@ export async function validateWidgetPayload(
   if (data.filterFieldKey) {
     const field = await client.officeFormField.findFirst({ where: { moduleId: { in: sourceModuleIds }, key: data.filterFieldKey } });
     if (!field) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'No selected module has this field', {
-        filterFieldKey: [`No selected module has the field "${data.filterFieldKey}"`],
+      sendError(res, 400, 'VALIDATION_ERROR', 'No selected program has this field', {
+        filterFieldKey: [`No selected program has the field "${data.filterFieldKey}"`],
       });
       return null;
     }
@@ -203,8 +203,8 @@ export async function validateWidgetPayload(
     const key = data.measure.slice('sum:'.length);
     const field = await client.officeFormField.findFirst({ where: { moduleId: { in: sourceModuleIds }, key, fieldType: 'NUMBER' } });
     if (!field) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'Sum needs a number field on a selected module', {
-        measure: [`No selected module has a number field "${key}"`],
+      sendError(res, 400, 'VALIDATION_ERROR', 'Sum needs a number field on a selected program', {
+        measure: [`No selected program has a number field "${key}"`],
       });
       return null;
     }

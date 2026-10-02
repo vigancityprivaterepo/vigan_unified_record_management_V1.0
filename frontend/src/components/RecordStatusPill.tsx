@@ -3,7 +3,7 @@ import type { OfficeRecordListItem, RecordStatus } from '@/lib/api';
 export const RECORD_STATUS_LABEL: Record<RecordStatus, string> = {
   linked: 'Linked to registry',
   new: 'New citizen added',
-  review: 'Awaiting admin review',
+  review: 'Awaiting administrator review',
   unlinked: 'Not linked',
 };
 

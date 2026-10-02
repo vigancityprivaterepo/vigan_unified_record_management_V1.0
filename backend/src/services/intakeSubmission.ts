@@ -57,11 +57,11 @@ export function parseIntake(module: IntakeModule, jsonFieldDefs: DynamicFieldDef
   let core: Record<string, unknown> = {};
   if (module.collectPersonInfo) {
     const parsedCore = coreSchema.safeParse(rawCore);
-    if (!parsedCore.success) return { ok: false, message: 'Invalid intake payload', details: parsedCore.error.flatten() };
+    if (!parsedCore.success) return { ok: false, message: 'Check the person\'s details', details: parsedCore.error.flatten() };
     core = uppercaseStrings(parsedCore.data as unknown as Record<string, unknown>);
   }
   const fieldsParsed = buildDynamicFieldsSchema(jsonFieldDefs).safeParse(rawFields);
-  if (!fieldsParsed.success) return { ok: false, message: 'Invalid intake fields', details: fieldsParsed.error.flatten() };
+  if (!fieldsParsed.success) return { ok: false, message: 'Check the form fields', details: fieldsParsed.error.flatten() };
   return { ok: true, core, data: uppercaseFreeText(fieldsParsed.data, jsonFieldDefs) };
 }
 

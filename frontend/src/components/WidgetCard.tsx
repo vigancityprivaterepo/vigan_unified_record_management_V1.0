@@ -81,7 +81,7 @@ export function WidgetCard({
       {rows && rows.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--t-muted)', textAlign: 'center', padding: '32px 0' }}>
           No records yet in {widget.sourceModules.map((m) => m.name).join(' / ')}. It fills in once staff submit
-          intakes there.
+          registrations there.
         </p>
       )}
 

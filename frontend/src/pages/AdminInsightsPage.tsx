@@ -116,7 +116,7 @@ export function AdminInsightsPage() {
         </ChartCard>
       </div>
 
-      <ChartCard title="Registrations & dedup merges, last 24 months">
+      <ChartCard title="New registrations and merged duplicates, last 24 months">
         <TrendSection selectedMonth={filters.monthFrom} onMonthClick={toggleMonth} />
       </ChartCard>
 

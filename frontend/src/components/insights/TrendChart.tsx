@@ -38,7 +38,7 @@ export function TrendChart({ data, onMonthClick }: { data: TrendPoint[]; onMonth
         <Tooltip contentStyle={{ borderRadius: 'var(--r-md)', fontSize: 12 }} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Line isAnimationActive={false} type="monotone" dataKey="registrations" name="New registrations" stroke={REGISTRATIONS_COLOR} strokeWidth={2} dot={{ r: 4 }} />
-        <Line isAnimationActive={false} type="monotone" dataKey="merges" name="Dedup merges" stroke={MERGES_COLOR} strokeWidth={2} dot={{ r: 4 }} />
+        <Line isAnimationActive={false} type="monotone" dataKey="merges" name="Merged duplicates" stroke={MERGES_COLOR} strokeWidth={2} dot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer>
   );

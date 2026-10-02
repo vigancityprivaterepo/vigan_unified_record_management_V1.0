@@ -153,7 +153,7 @@ adminUsersRouter.patch(
 
     const nextRole = parsed.data.role ?? existing.role;
     if (existing.id === req.session.userId && nextRole !== 'admin') {
-      sendError(res, 400, 'SELF_DEMOTION', 'You cannot change your own role away from admin. Have another admin do it.');
+      sendError(res, 400, 'SELF_DEMOTION', 'You cannot change your own role away from administrator. Have another administrator do it.');
       return;
     }
 
@@ -229,7 +229,7 @@ async function setActive(req: Request, res: Response, isActive: boolean): Promis
     return;
   }
   if (!isActive && existing.id === req.session.userId) {
-    sendError(res, 400, 'SELF_DEACTIVATION', 'You cannot deactivate your own account. Have another admin do it.');
+    sendError(res, 400, 'SELF_DEACTIVATION', 'You cannot deactivate your own account. Have another administrator do it.');
     return;
   }
 
@@ -279,7 +279,7 @@ adminUsersRouter.delete(
       return;
     }
     if (existing.id === req.session.userId) {
-      sendError(res, 400, 'SELF_DELETION', 'You cannot delete your own account. Have another admin do it.');
+      sendError(res, 400, 'SELF_DELETION', 'You cannot delete your own account. Have another administrator do it.');
       return;
     }
 

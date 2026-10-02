@@ -32,7 +32,7 @@ officeImportRouter.post(
     const module = await client.officeModule.findUnique({ where: { id: req.params.moduleId } });
     const office = module ? await client.office.findUnique({ where: { id: module.officeId }, select: { isActive: true } }) : null;
     if (!module || module.officeId !== req.params.officeId || !office?.isActive) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
     const parsed = bodySchema.safeParse(req.body);
@@ -70,7 +70,7 @@ async function linkableModule(req: Request, res: Response) {
   const client = getPrismaForRole(req.session.role!);
   const module = await client.officeModule.findUnique({ where: { id: req.params.moduleId } });
   if (!module || module.officeId !== req.params.officeId) {
-    sendError(res, 404, 'NOT_FOUND', 'No such module');
+    sendError(res, 404, 'NOT_FOUND', 'No such program');
     return null;
   }
   if (!module.collectPersonInfo || module.requiresCitizenLink) {

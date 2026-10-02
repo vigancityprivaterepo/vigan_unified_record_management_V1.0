@@ -88,7 +88,7 @@ export function OfficeModuleRecordsPanel({
     api
       .getOfficeModuleFields(officeId, officeModule.id)
       .then(setFields)
-      .catch((err) => setFieldsError(err instanceof ApiError ? err.message : 'Failed to load this module’s fields'));
+      .catch((err) => setFieldsError(err instanceof ApiError ? err.message : 'Could not load this program’s fields'));
   }, [officeId, officeModule.id]);
 
   const fetchRecords = useCallback(

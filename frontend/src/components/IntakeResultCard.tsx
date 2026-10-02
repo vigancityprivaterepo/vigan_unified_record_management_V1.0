@@ -36,7 +36,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
           </div>
           <div className="body">
             <div className="title">New citizen registered</div>
-            No existing record matched, so a new Citizen row was created and linked.
+            No one in the registry matched, so this person was added to the City Citizen Registry.
             <br />
             <span className="mono" style={{ fontSize: 12 }}>
               person_key: {result.personKey} &middot; Record: {result.recordId}
@@ -60,7 +60,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
           </div>
           <div className="body">
             <div className="title">Linked to existing citizen</div>
-            An exact match was found, so no duplicate Citizen row was created.
+            This person is already in the registry, so no duplicate was added.
             <br />
             <span className="mono" style={{ fontSize: 12 }}>
               person_key: {result.personKey} &middot; Record: {result.recordId}
@@ -83,7 +83,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
         </div>
         <div className="body">
           <div className="title">Birth recorded</div>
-          Not a Vigan resident: recorded with no Citizen row linked.
+          Not a Vigan resident: saved without a registry link.
           <br />
           <span className="mono" style={{ fontSize: 12 }}>
             Record: {result.recordId}
@@ -119,12 +119,12 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
     <div className="card">
       <div className="card-head">
         <div className="card-title-wrap">
-          <h3 className="card-title">Queued for admin review</h3>
+          <h3 className="card-title">Waiting for the administrator's review</h3>
         </div>
         <span className="badge warning">Needs review</span>
       </div>
       <p style={{ fontSize: 13, color: 'var(--t-muted)', marginTop: 0 }}>
-        Possible duplicates found. Nothing was saved yet. An admin will resolve this from the Duplicate Review
+        Possible duplicates found. Nothing was saved yet. The administrator will decide in Duplicate review
         Queue.
       </p>
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--t-base)', marginBottom: 6 }}>Possible matches:</p>

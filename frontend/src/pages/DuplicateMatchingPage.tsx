@@ -62,7 +62,7 @@ function ThresholdSettingsSection() {
         <div className="card-title-wrap">
           <h3 className="card-title">Duplicate-matching thresholds</h3>
           <p className="card-desc">
-            Controls how aggressively resolvePerson() treats two intake records as the same citizen. Takes effect
+            Controls how close two registrations must be before they are treated as the same citizen. Takes effect
             immediately, no deploy needed.
           </p>
         </div>

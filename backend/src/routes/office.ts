@@ -122,7 +122,7 @@ officeRouter.get('/:officeId/modules/:moduleId/fields', requireOfficeAccess, asy
   const client = getPrismaForRole(req.session.role!);
   const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
   if (!officeModule) {
-    sendError(res, 404, 'NOT_FOUND', 'No such module');
+    sendError(res, 404, 'NOT_FOUND', 'No such program');
     return;
   }
   const fields = await client.officeFormField.findMany({
@@ -153,7 +153,7 @@ officeRouter.post(
     }
     const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
     if (!officeModule) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
 
@@ -234,7 +234,7 @@ officeRouter.get('/:officeId/modules/:moduleId/records', requireOfficeAccess, as
   const client = getPrismaForRole(req.session.role!);
   const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
   if (!officeModule) {
-    sendError(res, 404, 'NOT_FOUND', 'No such module');
+    sendError(res, 404, 'NOT_FOUND', 'No such program');
     return;
   }
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
@@ -251,7 +251,7 @@ const STATUS_LABEL: Record<RecordStatus, string> = {
   linked: 'Linked to registry',
   new: 'New citizen added',
   unlinked: 'Not linked',
-  review: 'Awaiting admin review',
+  review: 'Awaiting administrator review',
 };
 
 // CSV of every active record in one module, with the module's own form
@@ -262,7 +262,7 @@ officeRouter.get('/:officeId/modules/:moduleId/records/export.csv', requireOffic
   const client = getPrismaForRole(req.session.role!);
   const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
   if (!officeModule) {
-    sendError(res, 404, 'NOT_FOUND', 'No such module');
+    sendError(res, 404, 'NOT_FOUND', 'No such program');
     return;
   }
   const [fields, records] = await Promise.all([
@@ -336,7 +336,7 @@ officeRouter.patch(
     const client = getPrismaForRole(req.session.role!);
     const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
     if (!officeModule) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
     const record = await client.officeRecord.findUnique({ where: { id: req.params.recordId } });
@@ -421,7 +421,7 @@ officeRouter.get(
     const client = getPrismaForRole(req.session.role!);
     const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
     if (!officeModule) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
     const record = await client.officeRecord.findUnique({ where: { id: req.params.recordId } });
@@ -471,7 +471,7 @@ officeRouter.post(
     const client = getPrismaForRole(req.session.role!);
     const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
     if (!officeModule) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
     const record = await client.officeRecord.findUnique({ where: { id: req.params.recordId } });
@@ -514,7 +514,7 @@ officeRouter.delete('/:officeId/modules/:moduleId/records/:recordId', requireOff
   const client = getPrismaForRole(req.session.role!);
   const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
   if (!officeModule) {
-    sendError(res, 404, 'NOT_FOUND', 'No such module');
+    sendError(res, 404, 'NOT_FOUND', 'No such program');
     return;
   }
 

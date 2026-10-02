@@ -94,7 +94,7 @@ export function CreateOfficeForm({ onCreated }: { onCreated: (office: Office) =>
       </div>
       <div className="field">
         <label className="field-label" htmlFor="office-slug">
-          Module name
+          Identifier (cannot be changed later)
         </label>
         <input
           id="office-slug"

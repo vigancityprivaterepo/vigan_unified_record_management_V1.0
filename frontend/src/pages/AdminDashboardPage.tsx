@@ -63,7 +63,7 @@ function SummaryKpis() {
       icon: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     },
     {
-      label: 'Modules configured',
+      label: 'Programs set up',
       value: summary.moduleCount,
       className: 'c-success',
       icon: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h6M9 12h6M9 16h4"/>',

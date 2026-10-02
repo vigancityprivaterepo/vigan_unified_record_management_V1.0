@@ -86,7 +86,7 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
       
       if (err instanceof ApiError && err.code === 'OFFICE_HAS_MODULES' && err.details && typeof err.details === 'object' && 'moduleCount' in err.details) {
         const moduleCount = (err.details as { moduleCount: number }).moduleCount;
-        if (window.confirm(`This office has ${moduleCount} module(s). Delete them too (only if empty), then the office?`)) {
+        if (window.confirm(`This office has ${moduleCount} ${moduleCount === 1 ? 'program' : 'programs'}. Delete ${moduleCount === 1 ? 'it' : 'them'} too (only if empty), then the office?`)) {
           try {
             await api.deleteOffice(office.id, true);
             setManagingId(null);
@@ -96,7 +96,7 @@ export function AllOfficesPage({ onNavigate }: { onNavigate?: (tab: AdminTab, fi
           }
         }
       } else {
-        setError(err instanceof ApiError ? err.message : 'Could not delete the office. It may still have modules or staff accounts.');
+        setError(err instanceof ApiError ? err.message : 'Could not delete the office. It may still have programs or staff accounts.');
       }
     } finally {
       setBusyId(null);
@@ -302,8 +302,8 @@ function OfficeDetailsEditor({ office, onSaved }: { office: Office; onSaved: () 
         <span className="field-hint">Shown in the sidebar, cards and charts. Leave empty to use the name.</span>
       </div>
       <div className="field">
-        <label className="field-label" htmlFor={`office-slug-${office.id}`}>Module name</label>
-        <input id={`office-slug-${office.id}`} className="input mono" value={office.slug} disabled title="The module name is the office's permanent identifier and can't be changed" />
+        <label className="field-label" htmlFor={`office-slug-${office.id}`}>Identifier</label>
+        <input id={`office-slug-${office.id}`} className="input mono" value={office.slug} disabled title="The identifier is permanent and can't be changed" />
       </div>
       <div className="field span-2">
         <label className="field-label" htmlFor={`office-desc-${office.id}`}>Description</label>
@@ -397,7 +397,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
         setModules(mods);
         setSelectedModule((prev) => mods.find((m) => m.id === prev?.id) ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load modules'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the programs'));
   }
 
   useEffect(load, [office.id]);
@@ -423,7 +423,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
       setAdding(false);
       setEditingModule(created);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create module');
+      setError(err instanceof ApiError ? err.message : 'Could not add the program');
     } finally {
       setCreating(false);
     }
@@ -436,7 +436,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
       await api.deleteOfficeModule(office.id, officeModule.id);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not remove the module. It may already have saved records.');
+      setError(err instanceof ApiError ? err.message : 'Could not remove the program. It may already have saved records.');
     } finally {
       setBusyId(null);
     }
@@ -540,7 +540,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
 
       {selectedModule && (
         <Modal
-          title="Intake form fields"
+          title="Form fields"
           eyebrow={`${office.name} · ${selectedModule.name}`}
           onClose={() => setSelectedModule(null)}
         >
@@ -549,7 +549,7 @@ function OfficeModulesSection({ office }: { office: Office }) {
       )}
 
       {editingModule && (
-        <Modal title="Configure module" eyebrow={`${office.name} · ${editingModule.name}`} onClose={() => setEditingModule(null)}>
+        <Modal title="Program settings" eyebrow={`${office.name} · ${editingModule.name}`} onClose={() => setEditingModule(null)}>
           <ModuleCoreFieldsEditor
             office={office}
             officeModule={editingModule}
@@ -761,7 +761,7 @@ function ModuleFieldsSection({ office, officeModule }: { office: Office; officeM
   return (
     <>
       <p style={{ fontSize: 13, color: 'var(--t-muted)', marginTop: 0, marginBottom: 20 }}>
-        Every module form also collects last/first/middle name, birthdate, and address. These are the extra
+        Every program's form already asks for last, first and middle name, birthdate and address. These are the extra
         fields specific to {officeModule.name}.
       </p>
 

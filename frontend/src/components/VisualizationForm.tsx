@@ -200,7 +200,7 @@ export function VisualizationForm({
       <div className="field span-2">
         <MultiSelectDropdown
           label="Data sources"
-          summary={sourceModules.selected.length === 0 ? 'Select modules' : `${sourceModules.selected.length} selected`}
+          summary={sourceModules.selected.length === 0 ? 'Select programs' : `${sourceModules.selected.length} selected`}
         >
           {offices.map((o) => {
             const mods = modulesByOffice[o.id] ?? [];

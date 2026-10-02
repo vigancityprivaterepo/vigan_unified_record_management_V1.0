@@ -111,7 +111,7 @@ adminOfficesRouter.post(
 
     const existing = await client.office.findUnique({ where: { slug: parsed.data.slug } });
     if (existing) {
-      sendError(res, 409, 'MODULE_NAME_TAKEN', `Module name "${parsed.data.slug}" is already in use`);
+      sendError(res, 409, 'MODULE_NAME_TAKEN', `The identifier "${parsed.data.slug}" is already in use`);
       return;
     }
 
@@ -233,7 +233,7 @@ adminOfficesRouter.delete(
 
     if (modules.length > 0) {
       if (req.query.force !== 'true') {
-        sendError(res, 409, 'OFFICE_HAS_MODULES', 'Remove every module from this office first', {
+        sendError(res, 409, 'OFFICE_HAS_MODULES', 'Remove every program from this office first', {
           moduleCount: modules.length,
         });
         return;
@@ -253,7 +253,7 @@ adminOfficesRouter.delete(
           res,
           409,
           'OFFICE_HAS_MODULES',
-          `These modules have saved records or are used by a dashboard widget, so they weren't removed automatically: ${nonEmpty.join(', ')}`,
+          `These programs have saved records or are used by a chart, so they weren't removed automatically: ${nonEmpty.join(', ')}`,
         );
         return;
       }
@@ -339,7 +339,7 @@ adminOfficesRouter.post(
   asyncHandler(async (req, res) => {
     const parsed = createModuleSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'Invalid module payload', parsed.error.flatten());
+      sendError(res, 400, 'VALIDATION_ERROR', 'Check the program details', parsed.error.flatten());
       return;
     }
     const collectPersonInfo = parsed.data.collectPersonInfo ?? true;
@@ -355,7 +355,7 @@ adminOfficesRouter.post(
       where: { officeId_slug: { officeId, slug: parsed.data.slug } },
     });
     if (existing) {
-      sendError(res, 409, 'MODULE_SLUG_TAKEN', `A module named "${parsed.data.slug}" already exists on this office`);
+      sendError(res, 409, 'MODULE_SLUG_TAKEN', `A program with the identifier "${parsed.data.slug}" already exists in this office`);
       return;
     }
 
@@ -412,13 +412,13 @@ adminOfficesRouter.patch(
   asyncHandler(async (req, res) => {
     const parsed = updateModuleSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, 400, 'VALIDATION_ERROR', 'Invalid module payload', parsed.error.flatten());
+      sendError(res, 400, 'VALIDATION_ERROR', 'Check the program details', parsed.error.flatten());
       return;
     }
     const client = getPrismaForRole('admin');
     const existing = await client.officeModule.findFirst({ where: { id: req.params.moduleId, officeId: req.params.id } });
     if (!existing) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
 
@@ -467,7 +467,7 @@ adminOfficesRouter.delete(
     const client = getPrismaForRole('admin');
     const existing = await client.officeModule.findFirst({ where: { id: req.params.moduleId, officeId: req.params.id } });
     if (!existing) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
     const [recordCount, widgetSourceCount] = await Promise.all([
@@ -475,11 +475,11 @@ adminOfficesRouter.delete(
       client.dashboardWidgetSource.count({ where: { moduleId: req.params.moduleId } }),
     ]);
     if (recordCount > 0) {
-      sendError(res, 409, 'MODULE_HAS_RECORDS', 'This module has saved records and cannot be removed');
+      sendError(res, 409, 'MODULE_HAS_RECORDS', 'This program has saved records and cannot be removed');
       return;
     }
     if (widgetSourceCount > 0) {
-      sendError(res, 409, 'MODULE_USED_BY_WIDGET', 'This module is used as a data source by a dashboard visualization. Remove that first.');
+      sendError(res, 409, 'MODULE_USED_BY_WIDGET', 'This program is used by a chart. Remove the chart first.');
       return;
     }
 
@@ -588,15 +588,15 @@ adminOfficesRouter.post(
         res,
         400,
         'VALIDATION_ERROR',
-        `"${parsed.data.label}" is already collected by every module's intake form, so there is no need to add it as a custom field`,
-        { label: ['Already collected by the core intake form'] },
+        `"${parsed.data.label}" is already on every program's form, so there is no need to add it`,
+        { label: ["Already on every program's form"] },
       );
       return;
     }
     const client = getPrismaForRole('admin');
     const officeModule = await client.officeModule.findFirst({ where: { id: req.params.moduleId, officeId: req.params.id } });
     if (!officeModule) {
-      sendError(res, 404, 'NOT_FOUND', 'No such module');
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
       return;
     }
 
@@ -652,8 +652,8 @@ adminOfficesRouter.patch(
         res,
         400,
         'VALIDATION_ERROR',
-        `"${parsed.data.label}" is already collected by every module's intake form, so there is no need for it as a custom field`,
-        { label: ['Already collected by the core intake form'] },
+        `"${parsed.data.label}" is already on every program's form, so there is no need for it`,
+        { label: ["Already on every program's form"] },
       );
       return;
     }

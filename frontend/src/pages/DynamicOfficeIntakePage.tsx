@@ -61,7 +61,7 @@ export function DynamicOfficeIntakePage({ officeId, officeName, module: officeMo
     api
       .getOfficeModuleFields(officeId, officeModule.id)
       .then((f) => { setFields(f); setValues(defaultFieldValues(f)); setFileValues({}); })
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : 'Failed to load this module’s form'));
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : 'Could not load this program’s form'));
   }, [officeId, officeModule.id]);
 
   // Debounced registry search (same endpoint the household picker uses).
@@ -253,7 +253,7 @@ export function DynamicOfficeIntakePage({ officeId, officeName, module: officeMo
                 </div>
                 {fields.length === 0 && (
                   <p style={{ margin: 0, fontSize: 14, color: 'var(--t-muted)' }}>
-                    {nothingToSubmit ? 'This module has nothing to fill in yet. An administrator can add fields from Offices.' : 'No extra details needed for this module. Continue to review.'}
+                    {nothingToSubmit ? 'This program has nothing to fill in yet. An administrator can add fields from Offices.' : 'No extra details needed for this program. Continue to review.'}
                   </p>
                 )}
                 <DynamicExtraFields
