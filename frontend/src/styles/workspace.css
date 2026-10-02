@@ -533,3 +533,5 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .imp-summary { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
 .imp-summary strong { display: inline-block; min-width: 56px; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
 .imp-summary .is-bad { color: var(--danger); }
+.dl-event { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.dl-event .select { width: auto; max-width: 100%; min-width: 220px; }

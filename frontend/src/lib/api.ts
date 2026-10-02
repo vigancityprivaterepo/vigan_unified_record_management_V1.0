@@ -537,10 +537,17 @@ export type GapPerson = { personKey: string; name: string; age: number | null; s
 
 // Disaster lists (admin): see backend/src/services/disasterLists.ts.
 export type DisasterCategory = 'senior' | 'young_child' | 'pwd' | 'pregnant' | 'solo_parent';
-export type DisasterBarangay = { code: string | null; name: string | null; people: number; households: number; evacuatedNow: number } & Record<DisasterCategory, number>;
+export type DisasterBarangay = {
+  code: string | null; name: string | null; people: number; households: number; evacuatedNow: number;
+  reliefPeople: number; reliefHouseholds: number;
+} & Record<DisasterCategory, number>;
+export type ReliefEvent = { event: string; label: string; households: number; lastDate: string | null };
+// Relief coverage for one event: who has / hasn't received.
+export type ReliefFilter = { event?: string; relief?: 'received' | 'not_received' };
 export type VulnerablePerson = {
   personKey: string; name: string; age: number | null; sex: string | null; street: string | null; barangay: string | null;
   householdKey: string; householdHead: string | null; needs: DisasterCategory[]; pregnancyNeedsCheck: boolean; evacuationCenter: string | null;
+  reliefReceived: boolean | null;
 };
 
 // Business renewals (BPLO): see backend/src/services/businessRenewals.ts.
@@ -646,14 +653,14 @@ export const api = {
     request<Paginated<RenewalBusiness>>(`${listBase(officeId)}/business-renewals/list${queryString({ page, ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`),
   exportRenewals: (officeId: string | undefined, f: RenewalFilters) =>
     download(`${listBase(officeId)}/business-renewals/list.csv${queryString({ ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`, 'business-renewals.csv'),
-  disasterSummary: (officeId?: string) =>
-    request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean }>(`${listBase(officeId)}/disaster-lists`),
-  disasterPeople: (officeId: string | undefined, page: number, barangayCode?: string, category?: DisasterCategory) =>
-    request<Paginated<VulnerablePerson>>(`${listBase(officeId)}/disaster-lists/people${queryString({ page, barangayCode, category })}`),
-  disasterPrint: (officeId: string | undefined, barangayCode: string) =>
-    request<{ total: number; items: VulnerablePerson[]; truncated: boolean }>(`${listBase(officeId)}/disaster-lists/print${queryString({ barangayCode })}`),
-  exportDisasterList: (officeId: string | undefined, barangayCode?: string, category?: DisasterCategory) =>
-    download(`${listBase(officeId)}/disaster-lists/people.csv${queryString({ barangayCode, category })}`, 'disaster-list.csv'),
+  disasterSummary: (officeId?: string, event?: string) =>
+    request<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean; reliefEvents: ReliefEvent[] }>(`${listBase(officeId)}/disaster-lists${queryString({ event })}`),
+  disasterPeople: (officeId: string | undefined, page: number, barangayCode?: string, category?: DisasterCategory, rf: ReliefFilter = {}) =>
+    request<Paginated<VulnerablePerson>>(`${listBase(officeId)}/disaster-lists/people${queryString({ page, barangayCode, category, ...rf })}`),
+  disasterPrint: (officeId: string | undefined, barangayCode: string, rf: ReliefFilter = {}) =>
+    request<{ total: number; items: VulnerablePerson[]; truncated: boolean }>(`${listBase(officeId)}/disaster-lists/print${queryString({ barangayCode, ...rf })}`),
+  exportDisasterList: (officeId: string | undefined, barangayCode?: string, category?: DisasterCategory, rf: ReliefFilter = {}) =>
+    download(`${listBase(officeId)}/disaster-lists/people.csv${queryString({ barangayCode, category, ...rf })}`, 'disaster-list.csv'),
   programGaps: (officeId: string | undefined, barangayCode?: string) =>
     request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`${listBase(officeId)}/program-gaps${queryString({ barangayCode })}`),
   programGapPeople: (officeId: string | undefined, ruleId: string, page: number, barangayCode?: string) =>

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../lib/prisma';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { resetDb } from '../testUtils/resetDb';
-import { listVulnerable, summarize } from './disasterLists';
+import { listVulnerable, reliefEvents, summarize } from './disasterLists';
 
 // Seeded: pwd, solo_parent, death. The seed has no prenatal/evacuees, so a
 // test office gets those (randomized office slug, same as other tests).
@@ -26,7 +26,7 @@ describe('disaster lists', () => {
   }
 
   beforeAll(async () => {
-    for (const slug of ['pwd', 'solo_parent', 'death', 'prenatal', 'evacuees']) ids[slug] = await moduleId(slug);
+    for (const slug of ['pwd', 'solo_parent', 'death', 'prenatal', 'evacuees', 'relief_distribution']) ids[slug] = await moduleId(slug);
   });
   beforeEach(resetDb);
   afterAll(async () => {
@@ -65,6 +65,24 @@ describe('disaster lists', () => {
     await person('Unlikely', 70, [['prenatal', { expected_delivery_date: daysFromNow(30) }]]);
     const { items } = await listVulnerable(getPrismaForRole('admin'), { category: 'pregnant' }, null);
     expect(Object.fromEntries(items.map((p) => [p.name.split(',')[0], p.pregnancyNeedsCheck]))).toEqual({ Likely: false, Unlikely: true });
+  });
+
+  it('marks whose household received relief for an event, matching event spellings loosely', async () => {
+    const head = await person('Head', 70, [['relief_distribution', { event: 'Typhoon Kristine', distribution_date: '2026-10-01' }]]);
+    const member = await prisma.citizen.create({ data: { personLname: 'Member', personFname: 'T', personBdate: yearsAgo(2), personParentKey: head } });
+    await prisma.citizen.update({ where: { personKey: head }, data: { personIsHead: true } });
+    await person('Unreached', 65);
+    await person('OtherEvent', 66, [['relief_distribution', { event: 'Flood October' }]]);
+    const client = getPrismaForRole('admin');
+    const f = { event: 'TYPHOON  kristine.' };
+    const { items } = await listVulnerable(client, f, null);
+    expect(Object.fromEntries(items.map((p) => [p.name.split(',')[0], p.reliefReceived]))).toEqual({ Head: true, Member: true, Unreached: false, OtherEvent: false });
+    expect(member.personKey).toBeTruthy();
+    expect((await listVulnerable(client, { ...f, relief: 'not_received' }, null)).items.map((p) => p.name.split(',')[0]).sort()).toEqual(['OtherEvent', 'Unreached']);
+    const { totals } = await summarize(client, f);
+    expect([totals.reliefPeople, totals.reliefHouseholds]).toEqual([2, 1]);
+    expect((await listVulnerable(client, {}, null)).items.every((p) => p.reliefReceived === null)).toBe(true);
+    expect((await reliefEvents(client)).map((e) => e.event).sort()).toEqual(['FLOOD OCTOBER', 'TYPHOON KRISTINE']);
   });
 
   it('filters by need', async () => {

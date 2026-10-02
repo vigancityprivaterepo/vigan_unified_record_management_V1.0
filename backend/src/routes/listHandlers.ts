@@ -8,7 +8,7 @@ import { sendError } from '../lib/errors';
 import { parsePage, type Paginated } from '../lib/pagination';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import {
-  CATEGORIES, listVulnerable, summarize, usesSampleData as disasterUsesSample,
+  CATEGORIES, listVulnerable, reliefEvents, summarize, usesSampleData as disasterUsesSample,
   type Category, type DisasterFilters, type VulnerablePerson,
 } from '../services/disasterLists';
 import { BUSINESS_PERMITS_SLUG, listRenewals, summarizeRenewals, type RenewalBusiness, type RenewalFilters } from '../services/businessRenewals';
@@ -142,15 +142,21 @@ const NEED_LABEL: Record<Category, string> = {
 function disasterFilters(req: Request): DisasterFilters | null {
   const raw = typeof req.query.category === 'string' && req.query.category ? req.query.category : undefined;
   if (raw && !(CATEGORIES as readonly string[]).includes(raw)) return null;
-  return { barangayCode: barangayOf(req), category: raw as Category | undefined };
+  const event = typeof req.query.event === 'string' && req.query.event.trim() ? req.query.event.slice(0, 200) : undefined;
+  const relief = req.query.relief === 'received' || req.query.relief === 'not_received' ? req.query.relief : undefined;
+  return { barangayCode: barangayOf(req), category: raw as Category | undefined, event, relief };
 }
 const auditDisaster = (req: Request, view: string, f: DisasterFilters, rows: number, personKeys?: string[]) =>
-  audit(req, 'Citizen', null, { view: `disaster-list:${view}`, barangayCode: f.barangayCode ?? null, category: f.category ?? null, rows, ...(personKeys ? { personKeys } : {}) });
+  audit(req, 'Citizen', null, { view: `disaster-list:${view}`, barangayCode: f.barangayCode ?? null, category: f.category ?? null, event: f.event ?? null, relief: f.relief ?? null, rows, ...(personKeys ? { personKeys } : {}) });
 
 export const disasterSummary: RequestHandler = asyncHandler(async (req, res) => {
+  const f = disasterFilters(req);
+  if (!f) { sendError(res, 400, 'VALIDATION_ERROR', 'Unknown category'); return; }
   const client = clientFor(req);
-  const [summary, sample] = await Promise.all([summarize(client, { barangayCode: barangayOf(req) }), disasterUsesSample(client)]);
-  res.json({ ...summary, usesSampleData: sample });
+  const [summary, sample, events] = await Promise.all([
+    summarize(client, { barangayCode: f.barangayCode, event: f.event }), disasterUsesSample(client), reliefEvents(client),
+  ]);
+  res.json({ ...summary, usesSampleData: sample, reliefEvents: events });
 });
 
 export const disasterPeople: RequestHandler = asyncHandler(async (req, res) => {
@@ -180,11 +186,12 @@ export const disasterCsv: RequestHandler = asyncHandler(async (req, res) => {
   sendCsv(
     res,
     `disaster-list-${String(scope).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Barangay', 'Household head', 'Name', 'Age', 'Sex', 'Street', 'Needs', 'Evacuation center now'],
+    ['Barangay', 'Household head', 'Name', 'Age', 'Sex', 'Street', 'Needs', 'Evacuation center now', ...(f.event ? [`Relief received (${f.event})`] : [])],
     items.map((p) => [
       p.barangay, p.householdHead, p.name, p.age, p.sex, p.street,
       p.needs.map((n) => (n === 'pregnant' && p.pregnancyNeedsCheck ? 'Pregnant (check record)' : NEED_LABEL[n])).join('; '),
       p.evacuationCenter,
+      ...(f.event ? [p.reliefReceived ? 'Yes' : 'No'] : []),
     ]),
   );
 });

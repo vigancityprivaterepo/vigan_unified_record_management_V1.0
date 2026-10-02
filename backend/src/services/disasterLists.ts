@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { normalizeEvent, RELIEF_SLUG } from './reliefClaims';
 
 // Disaster lists for CDRRMO: residents who may need help to evacuate, by
 // barangay and household, worked out live from the shared registry.
@@ -25,7 +26,11 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 export const CATEGORIES = ['senior', 'young_child', 'pwd', 'pregnant', 'solo_parent'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-export type DisasterFilters = { barangayCode?: string; category?: Category };
+// event: a relief event (Relief Distribution records, matched the same loose
+// way as the double-claim check in services/reliefClaims.ts). With it, each
+// person is marked by whether their household has received relief for that
+// event, and relief can filter the list to who has / hasn't.
+export type DisasterFilters = { barangayCode?: string; category?: Category; event?: string; relief?: 'received' | 'not_received' };
 
 export type VulnerablePerson = {
   personKey: string;
@@ -39,6 +44,8 @@ export type VulnerablePerson = {
   needs: Category[];
   pregnancyNeedsCheck: boolean;
   evacuationCenter: string | null;
+  // null when no event is chosen.
+  reliefReceived: boolean | null;
 };
 
 export type BarangaySummary = {
@@ -47,7 +54,14 @@ export type BarangaySummary = {
   people: number;
   households: number;
   evacuatedNow: number;
+  // People / households whose household received relief for the chosen
+  // event; 0 when no event is chosen.
+  reliefPeople: number;
+  reliefHouseholds: number;
 } & Record<Category, number>;
+
+const EVENT_NORM = (expr: Prisma.Sql) => Prisma.sql`trim(regexp_replace(upper(COALESCE(${expr}, '')), '[^A-Z0-9]+', ' ', 'g'))`;
+const HH = (c: string) => Prisma.raw(`CASE WHEN ${c}.person_is_head THEN ${c}.person_key ELSE COALESCE(${c}.person_parent_key, ${c}.person_key) END`);
 
 const date = (expr: Prisma.Sql) => Prisma.sql`(CASE WHEN ${expr} ~ '^\\d{4}-\\d{2}-\\d{2}' THEN substring(${expr} from 1 for 10)::date END)`;
 
@@ -58,9 +72,18 @@ function flagged(filters: DisasterFilters): Prisma.Sql {
     SELECT 1 FROM office_record r JOIN office_module m ON m.id = r.module_id
     WHERE r.person_key = c.person_key AND NOT r.is_archived AND m.slug = ${slug})`;
   const edd = date(Prisma.sql`r.data->>'expected_delivery_date'`);
+  const event = filters.event ? normalizeEvent(filters.event) : null;
+  const reliefHouseholds = event
+    ? Prisma.sql`relief_hh AS (
+        SELECT DISTINCT ${HH('rc')} AS hh
+        FROM office_record r JOIN office_module m ON m.id = r.module_id JOIN "Citizen" rc ON rc.person_key = r.person_key
+        WHERE m.slug = ${RELIEF_SLUG} AND NOT r.is_archived AND ${EVENT_NORM(Prisma.sql`r.data->>'event'`)} = ${event}
+      ),`
+    : Prisma.sql`relief_hh AS (SELECT NULL::uuid AS hh WHERE false),`;
   const visit = date(Prisma.sql`r.data->>'visit_date'`);
   return Prisma.sql`
-    WITH people AS (
+    WITH ${reliefHouseholds}
+    people AS (
       SELECT c.person_key, c.person_lname, c.person_fname, c.person_mname, c.person_sex, c.person_street,
         c.person_brgy_code, b.name AS barangay,
         CASE WHEN c.person_is_head THEN c.person_key ELSE COALESCE(c.person_parent_key, c.person_key) END AS hh,
@@ -85,7 +108,8 @@ function flagged(filters: DisasterFilters): Prisma.Sql {
         AND NOT ${inProgram('death')}
     ),
     flagged AS (
-      SELECT p.*, COALESCE(p.age >= 60, false) AS senior, COALESCE(p.age < 5, false) AS young_child
+      SELECT p.*, COALESCE(p.age >= 60, false) AS senior, COALESCE(p.age < 5, false) AS young_child,
+        CASE WHEN ${event !== null} THEN EXISTS (SELECT 1 FROM relief_hh x WHERE x.hh = p.hh) END AS relief
       FROM people p
     ),
     vulnerable AS (
@@ -101,7 +125,8 @@ export async function summarize(client: PrismaClient, filters: DisasterFilters):
       COUNT(*) FILTER (WHERE evac_center IS NOT NULL)::int AS evacuated_now,
       COUNT(*) FILTER (WHERE senior)::int AS senior, COUNT(*) FILTER (WHERE young_child)::int AS young_child,
       COUNT(*) FILTER (WHERE pwd)::int AS pwd, COUNT(*) FILTER (WHERE pregnant)::int AS pregnant,
-      COUNT(*) FILTER (WHERE solo_parent)::int AS solo_parent
+      COUNT(*) FILTER (WHERE solo_parent)::int AS solo_parent,
+      COUNT(*) FILTER (WHERE relief)::int AS relief_people, COUNT(DISTINCT hh) FILTER (WHERE relief)::int AS relief_households
     FROM vulnerable
     GROUP BY person_brgy_code, barangay
     ORDER BY COUNT(*) DESC, barangay
@@ -109,12 +134,14 @@ export async function summarize(client: PrismaClient, filters: DisasterFilters):
   const barangays = rows.map((r) => ({
     code: r.code as string | null, name: r.name as string | null,
     people: r.people as number, households: r.households as number, evacuatedNow: r.evacuated_now as number,
+    reliefPeople: r.relief_people as number, reliefHouseholds: r.relief_households as number,
     senior: r.senior as number, young_child: r.young_child as number, pwd: r.pwd as number, pregnant: r.pregnant as number, solo_parent: r.solo_parent as number,
   }));
   const sum = (k: keyof BarangaySummary) => barangays.reduce((a, b) => a + (b[k] as number), 0);
   return {
     totals: {
       code: null, name: null, people: sum('people'), households: sum('households'), evacuatedNow: sum('evacuatedNow'),
+      reliefPeople: sum('reliefPeople'), reliefHouseholds: sum('reliefHouseholds'),
       senior: sum('senior'), young_child: sum('young_child'), pwd: sum('pwd'), pregnant: sum('pregnant'), solo_parent: sum('solo_parent'),
     },
     barangays,
@@ -126,7 +153,11 @@ export async function listVulnerable(
   filters: DisasterFilters,
   page: { limit: number; offset: number } | null,
 ): Promise<{ total: number; items: VulnerablePerson[] }> {
-  const cat = filters.category ? Prisma.sql`WHERE ${Prisma.raw(filters.category)}` : Prisma.empty;
+  const conds: Prisma.Sql[] = [];
+  if (filters.category) conds.push(Prisma.raw(`v.${filters.category}`));
+  if (filters.event && filters.relief === 'received') conds.push(Prisma.sql`v.relief`);
+  if (filters.event && filters.relief === 'not_received') conds.push(Prisma.sql`NOT v.relief`);
+  const cat = conds.length ? Prisma.sql`WHERE ${Prisma.join(conds, ' AND ')}` : Prisma.empty;
   const paging = page ? Prisma.sql`LIMIT ${page.limit} OFFSET ${page.offset}` : Prisma.empty;
   const rows = await client.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
     ${flagged(filters)}
@@ -151,6 +182,7 @@ export async function listVulnerable(
       needs: CATEGORIES.filter((c) => r[c] === true),
       pregnancyNeedsCheck: r.pregnant === true && (r.person_sex === 'M' || (r.age != null && ((r.age as number) < 10 || (r.age as number) > 55))),
       evacuationCenter: r.evac_center as string | null,
+      reliefReceived: (r.relief as boolean | null) ?? null,
     })),
   };
 }
@@ -164,4 +196,21 @@ export async function usesSampleData(client: PrismaClient): Promise<boolean> {
     ) AS yes
   `);
   return rows[0]?.yes ?? false;
+}
+
+// Relief events on record (Relief Distribution), newest first, for the
+// event picker. Spellings that normalize the same are one event; the most
+// used spelling is shown.
+export async function reliefEvents(client: PrismaClient): Promise<Array<{ event: string; label: string; households: number; lastDate: string | null }>> {
+  const rows = await client.$queryRaw<Array<{ event: string; label: string; households: number; last_date: string | null }>>(Prisma.sql`
+    SELECT ${EVENT_NORM(Prisma.sql`r.data->>'event'`)} AS event,
+      mode() WITHIN GROUP (ORDER BY r.data->>'event') AS label,
+      COUNT(DISTINCT ${HH('c')})::int AS households,
+      max(r.data->>'distribution_date') AS last_date
+    FROM office_record r JOIN office_module m ON m.id = r.module_id JOIN "Citizen" c ON c.person_key = r.person_key
+    WHERE m.slug = ${RELIEF_SLUG} AND NOT r.is_archived AND ${EVENT_NORM(Prisma.sql`r.data->>'event'`)} <> ''
+    GROUP BY 1
+    ORDER BY max(r.created_at) DESC
+    LIMIT 50`);
+  return rows.map((r) => ({ event: r.event, label: r.label, households: r.households, lastDate: r.last_date ? r.last_date.slice(0, 10) : null }));
 }

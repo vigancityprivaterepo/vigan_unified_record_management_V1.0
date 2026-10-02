@@ -4,7 +4,7 @@ import { Icon } from '@/components/Icon';
 import { LoadError } from '@/components/LoadError';
 import { Modal } from '@/components/Modal';
 import { Pagination } from '@/components/Pagination';
-import { api, ApiError, type DisasterBarangay, type DisasterCategory, type Paginated, type VulnerablePerson } from '@/lib/api';
+import { api, ApiError, type DisasterBarangay, type DisasterCategory, type ReliefEvent, type ReliefFilter, type Paginated, type VulnerablePerson } from '@/lib/api';
 
 // Disaster lists for CDRRMO: residents who may need help to evacuate, per
 // barangay and household. Definitions live in backend/src/services/
@@ -25,7 +25,9 @@ type Scope = { code: string | null; name: string };
 
 // officeId set = the office that runs Evacuees (CDRRMO), whole city.
 export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
-  const [data, setData] = useState<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean } | null>(null);
+  const [data, setData] = useState<{ totals: DisasterBarangay; barangays: DisasterBarangay[]; usesSampleData: boolean; reliefEvents: ReliefEvent[] } | null>(null);
+  // A relief event picked here adds "received relief" counts and filters.
+  const [event, setEvent] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const [scope, setScope] = useState<Scope | null>(null);
@@ -35,14 +37,14 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
 
   useEffect(() => {
     setError(null);
-    api.disasterSummary(officeId).then(setData).catch((err) => { setData(null); setError(err); });
-  }, [officeId, attempt]);
+    api.disasterSummary(officeId, event || undefined).then(setData).catch((err) => { setData(null); setError(err); });
+  }, [officeId, event, attempt]);
 
   async function exportAll() {
     setExporting(true);
     setExportError(null);
     try {
-      await api.exportDisasterList(officeId);
+      await api.exportDisasterList(officeId, undefined, undefined, { event: event || undefined });
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     } finally {
@@ -56,9 +58,6 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
           <h1>Disaster lists</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 760 }}>
-            Residents who may need help to evacuate before a typhoon or flood: seniors 60 and older, children under 5, persons with disability, pregnant women and solo parents. Print one barangay&apos;s list for the barangay captain and rescue teams.
-          </p>
         </div>
         <button type="button" className="btn btn--ghost btn--lg" onClick={exportAll} disabled={exporting || !t?.people}>
           <Icon name="download" size={16} /> {exporting ? 'Exporting...' : 'Export all (CSV)'}
@@ -71,6 +70,20 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
       {data && t && (
         <>
           {data.usesSampleData && <p className="ws-note">Some of these programs contain sample data, so the counts below are not real yet.</p>}
+          <div className="dl-event">
+            <label className="field-label" htmlFor="dl-event" style={{ margin: 0 }}>Relief event</label>
+            <select id="dl-event" className="select" value={event} onChange={(e) => setEvent(e.target.value)}>
+              <option value="">None chosen</option>
+              {data.reliefEvents.map((ev) => (
+                <option key={ev.event} value={ev.event}>{ev.label} ({ev.households.toLocaleString()} {ev.households === 1 ? 'household' : 'households'} served{ev.lastDate ? `, last ${ev.lastDate}` : ''})</option>
+              ))}
+            </select>
+            <span className="ws-kpi-sub">
+              {data.reliefEvents.length === 0
+                ? 'No relief has been recorded yet. Record it in CDRRMO, Relief Distribution.'
+                : 'Choose an event to see which of these households have not received relief yet.'}
+            </span>
+          </div>
           <div className="ws-kpis">
             <div className="ws-card ws-kpi">
               <span className="ws-kpi-label">Residents who may need help</span>
@@ -82,6 +95,13 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
               <span className="ws-kpi-value">{t.evacuatedNow.toLocaleString()}</span>
               <span className="ws-kpi-sub">not yet marked as returned home</span>
             </div>
+            {event && (
+              <div className="ws-card ws-kpi">
+                <span className="ws-kpi-label">Not yet reached by this relief</span>
+                <span className="ws-kpi-value">{(t.households - t.reliefHouseholds).toLocaleString()}</span>
+                <span className="ws-kpi-sub">of {t.households.toLocaleString()} households ({(t.people - t.reliefPeople).toLocaleString()} people)</span>
+              </div>
+            )}
             <div className="ws-card ws-kpi" style={{ gridColumn: 'span 2' }}>
               <span className="ws-kpi-label">By need (a person can have more than one)</span>
               <div className="dl-needs">
@@ -108,7 +128,7 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
                     <tr>
                       <th>Barangay</th><th>People</th><th>Households</th>
                       {NEEDS.map((n) => <th key={n.key}>{n.plural}</th>)}
-                      <th>Evacuated now</th><th />
+                      <th>Evacuated now</th>{event && <th>Not yet reached</th>}<th />
                     </tr>
                   </thead>
                   <tbody>
@@ -121,6 +141,7 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
                           <td>{b.households}</td>
                           {NEEDS.map((n) => <td key={n.key}>{b[n.key] || ''}</td>)}
                           <td>{b.evacuatedNow || ''}</td>
+                          {event && <td><strong>{b.households - b.reliefHouseholds}</strong> of {b.households}</td>}
                           <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                             <button type="button" className="btn btn--ghost" onClick={() => setScope(s)}>View</button>{' '}
                             {b.code && <button type="button" className="btn btn--ghost" onClick={() => setPrinting(s)} aria-label={`Print list for ${s.name}`}>Print</button>}
@@ -136,14 +157,16 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
         </>
       )}
 
-      {scope && <PeopleModal officeId={officeId} scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
-      {printing?.code && <PrintSheet officeId={officeId} scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
+      {scope && <PeopleModal officeId={officeId} event={event || undefined} eventLabel={data?.reliefEvents.find((e) => e.event === event)?.label} scope={scope} onPrint={() => setPrinting(scope)} onClose={() => setScope(null)} />}
+      {printing?.code && <PrintSheet officeId={officeId} event={event || undefined} eventLabel={data?.reliefEvents.find((e) => e.event === event)?.label} scope={printing as Scope & { code: string }} onDone={() => setPrinting(null)} />}
     </div>
   );
 }
 
-function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string; scope: Scope; onPrint: () => void; onClose: () => void }) {
+function PeopleModal({ officeId, event, eventLabel, scope, onPrint, onClose }: { officeId?: string; event?: string; eventLabel?: string; scope: Scope; onPrint: () => void; onClose: () => void }) {
   const [category, setCategory] = useState<DisasterCategory | undefined>(undefined);
+  const [relief, setRelief] = useState<ReliefFilter['relief']>(undefined);
+  const rf: ReliefFilter = event ? { event, relief } : {};
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paginated<VulnerablePerson> | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -152,8 +175,9 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
 
   useEffect(() => {
     setError(null);
-    api.disasterPeople(officeId, page, scope.code ?? undefined, category).then(setResult).catch((err) => { setResult(null); setError(err); });
-  }, [officeId, scope.code, category, page, attempt]);
+    api.disasterPeople(officeId, page, scope.code ?? undefined, category, rf).then(setResult).catch((err) => { setResult(null); setError(err); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rf is derived from event + relief
+  }, [officeId, scope.code, category, event, relief, page, attempt]);
 
   function pick(c: DisasterCategory | undefined) {
     setCategory(c);
@@ -163,7 +187,7 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
   async function exportCsv() {
     setExportError(null);
     try {
-      await api.exportDisasterList(officeId, scope.code ?? undefined, category);
+      await api.exportDisasterList(officeId, scope.code ?? undefined, category, rf);
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     }
@@ -178,6 +202,14 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
           {NEEDS.map((n) => (
             <button key={n.key} type="button" className={`ws-chip${category === n.key ? ' is-on' : ''}`} onClick={() => pick(n.key)}>{n.plural}</button>
           ))}
+          {event && (
+            <select className="select" style={{ width: 'auto' }} aria-label="Relief" value={relief ?? ''}
+              onChange={(e) => { setRelief((e.target.value || undefined) as ReliefFilter['relief']); setPage(1); }}>
+              <option value="">Relief: everyone</option>
+              <option value="not_received">Not yet reached</option>
+              <option value="received">Already received</option>
+            </select>
+          )}
           <span style={{ flex: 1 }} />
           <button type="button" className="btn btn--ghost" onClick={exportCsv} disabled={!result?.total}><Icon name="download" size={16} /> Export CSV</button>
           {scope.code && <button type="button" className="btn btn--primary" onClick={onPrint}>Print list</button>}
@@ -191,7 +223,7 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
             <div className="table-scroll">
               <table className="table">
                 <thead>
-                  <tr><th>Name</th><th>Age</th><th>Sex</th><th>Needs</th>{!scope.code && <th>Barangay</th>}<th>Street</th><th>Evacuation center now</th></tr>
+                  <tr><th>Name</th><th>Age</th><th>Sex</th><th>Needs</th>{!scope.code && <th>Barangay</th>}<th>Street</th><th>Evacuation center now</th>{event && <th>Relief: {eventLabel ?? event}</th>}</tr>
                 </thead>
                 <tbody>
                   {result.items.map((p) => {
@@ -209,6 +241,7 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
                         {!scope.code && <td>{p.barangay ?? 'No barangay'}</td>}
                         <td>{p.street ?? ''}</td>
                         <td>{p.evacuationCenter ?? ''}</td>
+                        {event && <td>{p.reliefReceived ? 'Received' : <strong>Not yet</strong>}</td>}
                       </tr>
                     );
                   })}
@@ -228,7 +261,7 @@ function PeopleModal({ officeId, scope, onPrint, onClose }: { officeId?: string;
 
 // Printed sheet for one barangay: rendered outside the app root and shown
 // only by @media print (workspace.css), then removed after printing.
-function PrintSheet({ officeId, scope, onDone }: { officeId?: string; scope: Scope & { code: string }; onDone: () => void }) {
+function PrintSheet({ officeId, event, eventLabel, scope, onDone }: { officeId?: string; event?: string; eventLabel?: string; scope: Scope & { code: string }; onDone: () => void }) {
   const [rows, setRows] = useState<{ total: number; items: VulnerablePerson[]; truncated: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The parent passes a new onDone each render; keep the latest in a ref so
@@ -237,8 +270,8 @@ function PrintSheet({ officeId, scope, onDone }: { officeId?: string; scope: Sco
   done.current = onDone;
 
   useEffect(() => {
-    api.disasterPrint(officeId, scope.code).then(setRows).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the list to print'));
-  }, [officeId, scope.code]);
+    api.disasterPrint(officeId, scope.code, event ? { event } : {}).then(setRows).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the list to print'));
+  }, [officeId, scope.code, event]);
 
   useEffect(() => {
     if (!rows) return;
@@ -268,18 +301,19 @@ function PrintSheet({ officeId, scope, onDone }: { officeId?: string; scope: Sco
         <div>City Government of Vigan · City Disaster Risk Reduction and Management Office</div>
         <h1>Residents who may need help to evacuate</h1>
         <div><strong>{scope.name}</strong> · {rows.total} {rows.total === 1 ? 'person' : 'people'} in {households.size} {households.size === 1 ? 'household' : 'households'} · printed {printed}</div>
+        {event && <div>Relief event: <strong>{eventLabel ?? event}</strong></div>}
         <div className="dl-print-warn">Confidential: contains sensitive personal information (RA 10173). For disaster response only. Do not post or share.</div>
         {rows.truncated && <div className="dl-print-warn">Only the first {rows.items.length} people are printed. Export the CSV for the full list.</div>}
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Age</th><th>Sex</th><th>Needs</th><th>Street</th><th>Evacuated to</th><th>Reached</th></tr></thead>
+        <thead><tr><th>Name</th><th>Age</th><th>Sex</th><th>Needs</th><th>Street</th><th>Evacuated to</th>{event && <th>Relief received</th>}<th>Reached</th></tr></thead>
         {[...households.values()].map((members) => (
           <tbody key={members[0]!.householdKey}>
-            <tr className="dl-print-hh"><td colSpan={7}>Household of {members[0]!.householdHead ?? members[0]!.name}</td></tr>
+            <tr className="dl-print-hh"><td colSpan={event ? 8 : 7}>Household of {members[0]!.householdHead ?? members[0]!.name}</td></tr>
             {members.map((p) => (
               <tr key={p.personKey}>
                 <td>{p.name}</td><td>{p.age ?? ''}</td><td>{p.sex ?? ''}</td><td>{needsText(p)}</td>
-                <td>{p.street ?? ''}</td><td>{p.evacuationCenter ?? ''}</td><td className="dl-print-box" />
+                <td>{p.street ?? ''}</td><td>{p.evacuationCenter ?? ''}</td>{event && <td>{p.reliefReceived ? 'Yes' : 'Not yet'}</td>}<td className="dl-print-box" />
               </tr>
             ))}
           </tbody>
