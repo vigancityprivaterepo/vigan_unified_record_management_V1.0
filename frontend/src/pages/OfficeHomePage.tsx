@@ -104,8 +104,8 @@ export function OfficeHomePage({ officeId, office: _office, modules, userName, c
         {pinnedError != null && <LoadError what="your office's charts" error={pinnedError} onRetry={() => setPinnedAttempt((n) => n + 1)} />}
         {pinned && pinned.length === 0 && (
           <div className="ws-card ws-card--pad" style={{ color: 'var(--t-muted)', fontSize: 14 }}>
-            Tell your office's story with a chart, for example registrations per month or beneficiaries by barangay. Build one under
-            Charts, then “Pin to Home” to show it here.
+            Build a chart of your office's records under Charts, for example registrations per month or beneficiaries by barangay.
+            “Pin to Home” shows it here.
           </div>
         )}
         {pinned && pinned.length > 0 && (

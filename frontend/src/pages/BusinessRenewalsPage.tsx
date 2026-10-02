@@ -29,6 +29,9 @@ export function BusinessRenewalsPage({ officeId }: { officeId?: string } = {}) {
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
           <h1>Business renewals</h1>
+          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 760 }}>
+            Businesses whose latest permit is older than this year, from the Business Permits records. Use the list to follow up, inspect or remind owners to renew.
+          </p>
         </div>
       </div>
       {error != null && <LoadError what="business renewals" error={error} onRetry={() => setAttempt((n) => n + 1)} />}

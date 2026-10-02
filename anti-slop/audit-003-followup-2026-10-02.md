@@ -1,7 +1,7 @@
 # antislop audit 003: follow-up
 
 Date: 2026-10-02
-Approved for fixing: #1, #2, #3 (first round); #4 and #8 (second round); #5 (third round). Numbers 6 and 7 were not touched (#6 was covered by #4).
+Approved for fixing: #1, #2, #3 (first round); #4 and #8 (second round); #5 (third round); #7 (fourth round). #6 was covered by #4.
 
 ## Fixed
 
@@ -28,6 +28,13 @@ Code names (variables, routes, database columns) were not renamed; only text peo
 
 Checked in Edge: CDRRMO staff see 9 entries including Disaster lists and not Business renewals; BPLO staff see 10 including Business renewals and Link to registry and not Disaster lists; the admin sees 14, the last one reachable on a 900px-tall screen; Help fits at 360px.
 
+## Fourth round (#7, page descriptions)
+
+- #7 (R-36): office Home's empty chart area no longer says "Tell your office's story with a chart". It reads: "Build a chart of your office's records under Charts, for example registrations per month or beneficiaries by barangay. “Pin to Home” shows it here."
+- Owner asked to restore the short descriptions under the Program gaps, Disaster lists and Business renewals titles. Restored, shortened: the "worked out each time you open this page" clauses were dropped. Disaster lists keeps its original text.
+
+All three pages still fit at 360px.
+
 ## Delivery Gate
 
 - R-02: no ` -- ` or em dash left in on-screen text or server messages (search over `.ts` and `.tsx`, comments excluded).
@@ -36,4 +43,4 @@ Checked in Edge: CDRRMO staff see 9 entries including Disaster lists and not Bus
 
 ## Still open
 
-#7 from `audit-003-2026-10-02.md`, and whether to restore the page descriptions removed outside this session.
+Nothing from audit 003.
