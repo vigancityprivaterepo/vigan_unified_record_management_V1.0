@@ -567,3 +567,15 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .oh-todo > svg { color: var(--t-muted); }
 .oh-todo-label { display: block; font-weight: 600; }
 .oh-todo-detail { display: block; font-size: 13px; color: var(--t-muted); }
+
+/* ---------- Insights: four questions ---------- */
+.in-q-n { font-size: 13px; font-weight: 600; color: var(--t-muted); }
+.in-bar { display: grid; grid-template-columns: minmax(60px, 1fr) 42px; gap: 8px; align-items: center; text-align: right; font-variant-numeric: tabular-nums; }
+.in-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.in-sub { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.in-row { display: grid; grid-template-columns: 150px minmax(60px, 1fr) 56px; gap: 12px; align-items: center; padding: 6px 0; font-size: 14px; }
+.in-row > strong { text-align: right; font-variant-numeric: tabular-nums; }
+.in-row--plain { grid-template-columns: minmax(0, 1fr) 56px; border-top: 1px solid var(--border-soft); }
+.in-warn { color: var(--danger); }
+.in-ok { color: var(--t-light); }
+.in-notes { margin: 0; padding-left: 18px; font-size: 14px; color: var(--t-muted); display: flex; flex-direction: column; gap: 4px; }

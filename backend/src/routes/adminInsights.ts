@@ -11,6 +11,7 @@ import {
   type InsightsFilterParams,
 } from '../services/insights';
 import { computeOfficeBreakdown } from '../services/officeBreakdown';
+import { pace, quality, reach, underserved } from '../services/cityInsights';
 
 export const adminInsightsRouter = Router();
 adminInsightsRouter.use(requireRole('admin'));
@@ -79,5 +80,16 @@ adminInsightsRouter.get(
   asyncHandler(async (req, res) => {
     const client = getPrismaForRole('admin');
     res.json(await computeOfficeBreakdown(client, filtersFromQuery(req.query)));
+  }),
+);
+
+// The Insights page: four questions officials ask (services/cityInsights.ts).
+// Counts only, no names.
+adminInsightsRouter.get(
+  '/questions',
+  asyncHandler(async (_req, res) => {
+    const client = getPrismaForRole('admin');
+    const [u, r, p, q] = await Promise.all([underserved(client), reach(client), pace(client), quality(client)]);
+    res.json({ underserved: u, reach: r, pace: p, quality: q });
   }),
 );

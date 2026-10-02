@@ -39,7 +39,7 @@ export type GapPerson = {
   sourcePrograms: string[];
 };
 
-function whereFor(rule: GapRule, filters: GapFilters): Prisma.Sql {
+export function whereFor(rule: GapRule, filters: GapFilters): Prisma.Sql {
   const parts: Prisma.Sql[] = [Prisma.sql`NOT c.is_archived`];
   // Age in whole years on today's date: >= minAge means born on or before
   // today minus minAge years; <= maxAge means born after today minus

@@ -583,6 +583,22 @@ export type ImportRowResult = { row: number; name: string | null; outcome: strin
 // An office's Home to-do list (counts only): backend services/officeTodo.ts.
 export type TodoItem = { key: string; count: number; label: string; detail: string; go: string };
 
+// Insights page (admin): backend services/cityInsights.ts.
+export type CityInsights = {
+  underserved: {
+    rules: Array<{ id: string; name: string }>;
+    barangays: Array<{ code: string | null; name: string | null; residents: number; notServed: number; byRule: Record<string, number> }>;
+  };
+  reach: {
+    households: number;
+    byPrograms: Array<{ bucket: '0' | '1' | '2-3' | '4+'; households: number }>;
+    vulnerableNone: number;
+    vulnerableNoneByBarangay: Array<{ name: string | null; households: number }>;
+  };
+  pace: Array<{ id: string; name: string; program: string; office: string; gap: number; perMonth: number; months: number | null }>;
+  quality: Array<{ officeId: string; office: string; records: number; sample: number; unlinked: number; pendingReview: number; noBarangay: number; noSex: number; noBirthdate: number }>;
+};
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -650,6 +666,7 @@ export const api = {
     request<DataRequest>('/admin/privacy/requests', { method: 'POST', body: JSON.stringify(input) }),
   updateDataRequest: (id: string, input: { status?: DataRequest['status']; response?: string | null; closedOn?: string | null }) =>
     request<DataRequest>(`/admin/privacy/requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  cityInsights: () => request<CityInsights>('/admin/insights/questions'),
   officeTodo: (officeId: string) => request<TodoItem[]>(`/offices/${officeId}/todo`),
   officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),
   renewalSummary: (officeId?: string) => request<RenewalSummary>(`${listBase(officeId)}/business-renewals`),
