@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { LinkRegistryDialog } from '@/components/LinkRegistryDialog';
 import { ImportRecordsDialog } from '@/components/ImportRecordsDialog';
 import { Icon } from '@/components/Icon';
 import { OfficeModuleRecordsPanel } from '@/components/OfficeModuleRecordsPanel';
@@ -38,6 +39,9 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
 
   // Bulk import from a spreadsheet; the records list reloads after it.
   const [importing, setImporting] = useState(false);
+  // Programs where the registry link is optional can link saved records later.
+  const [linking, setLinking] = useState(false);
+  const canLink = !readOnly && officeModule.collectPersonInfo && !officeModule.requiresCitizenLink;
   const [reloadKey, setReloadKey] = useState(0);
 
   return (
@@ -55,6 +59,12 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
           <Icon name="download" size={16} />
           {exporting ? 'Exporting...' : `Export ${officeModule.name} list`}
         </button>
+        {canLink && (
+          <button className="btn btn--ghost btn--lg" onClick={() => setLinking(true)}>
+            <Icon name="link" size={16} />
+            Link to registry
+          </button>
+        )}
         {!readOnly && (
           <button className="btn btn--ghost btn--lg" onClick={() => setImporting(true)}>
             <Icon name="list" size={16} />
@@ -80,6 +90,9 @@ export function DynamicOfficeRecordsPage({ officeId, officeName, module: officeM
           onLoaded={handleLoaded}
         />
       </div>
+      {linking && (
+        <LinkRegistryDialog officeId={officeId} module={officeModule} onClose={() => setLinking(false)} onLinked={() => setReloadKey((n) => n + 1)} />
+      )}
       {importing && (
         <ImportRecordsDialog officeId={officeId} module={officeModule} onClose={() => setImporting(false)} onImported={() => setReloadKey((n) => n + 1)} />
       )}

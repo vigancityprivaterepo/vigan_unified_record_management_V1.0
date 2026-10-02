@@ -599,6 +599,15 @@ export type CityInsights = {
   quality: Array<{ officeId: string; office: string; records: number; sample: number; unlinked: number; pendingReview: number; noBarangay: number; noSex: number; noBirthdate: number }>;
 };
 
+// Linking saved records to the registry: backend services/registryLinking.ts.
+export type RegistryLinks = {
+  unlinked: number; withCandidates: number; sure: number; page: number; pageSize: number;
+  items: Array<{
+    recordId: string; name: string; bdate: string | null; context: string | null; sure: boolean;
+    candidates: Array<{ personKey: string; name: string; bdate: string | null; barangay: string | null; similarity: number; exactName: boolean; sameBirthdate: boolean; programs: string[] }>;
+  }>;
+};
+
 const listBase = (officeId?: string) => (officeId ? `/offices/${officeId}` : '/admin');
 
 export const api = {
@@ -611,6 +620,12 @@ export const api = {
   // --- Office (office_staff-facing) -------------------------------------------
   getOffice: (officeId: string) => request<Office>(`/offices/${officeId}`).then((o) => (registerShortNames([o]), o)),
   getOfficeModules: (officeId: string) => request<OfficeModule[]>(`/offices/${officeId}/modules`),
+  registryLinks: (officeId: string, moduleId: string, page: number) =>
+    request<RegistryLinks>(`/offices/${officeId}/modules/${moduleId}/registry-links${queryString({ page })}`),
+  linkRegistryRecord: (officeId: string, moduleId: string, recordId: string, personKey: string) =>
+    request<{ linked: number }>(`/offices/${officeId}/modules/${moduleId}/registry-links`, { method: 'POST', body: JSON.stringify({ recordId, personKey }) }),
+  linkRegistrySure: (officeId: string, moduleId: string) =>
+    request<{ linked: number }>(`/offices/${officeId}/modules/${moduleId}/registry-links/sure`, { method: 'POST' }),
   importRecords: (officeId: string, moduleId: string, body: { dryRun: boolean; batchId?: string; fileName?: string; rows: Array<{ core: Record<string, string>; fields: Record<string, string> }> }) =>
     request<{ batchId: string; results: ImportRowResult[] }>(`/offices/${officeId}/modules/${moduleId}/import`, { method: 'POST', body: JSON.stringify(body) }),
   getOfficeModuleFields: (officeId: string, moduleId: string) =>
