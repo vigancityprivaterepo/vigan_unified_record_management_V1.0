@@ -22,7 +22,7 @@ export function CreateVisualizationPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="hero">
         <div className="hero-text">
-          <h1 className="hero-title">Create Visualization</h1>
+          <h1 className="hero-title">New visualization</h1>
         </div>
       </div>
 

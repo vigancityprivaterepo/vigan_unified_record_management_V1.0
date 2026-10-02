@@ -34,6 +34,7 @@ Everything below was decided by the product owner during development; the source
 - Weights 400, 500, 600 only. Page titles 22px / 600.
 - **Uppercase is used in two places only, on purpose:** sidebar group labels (they group navigation, not content) and table column headers (short, scannable column names). Both at 11 to 11.5px, 600 weight, 0.06 to 0.08em tracking. Everything else is sentence case. *Source: owner approved audit 001 #8.*
 - Body text 15px, kept above the guide's 13 to 14px on purpose for older staff. *Source: owner approved.*
+- **Type scale:** whole pixels, nothing under 12px except the two uppercase labels below. 12 tags, chart axes, footnotes; 13 help text, error messages, secondary text; 14 table cells and buttons; 15 body; 17 to 18 card titles; 22 page titles (tokens `--fs-*` in `workspace.css`). Every page title uses one style, in sentence case, and matches its sidebar entry. *Source: owner approved audit 002.*
 - Fonts are self-hosted (offline server).
 
 ## Layout and components

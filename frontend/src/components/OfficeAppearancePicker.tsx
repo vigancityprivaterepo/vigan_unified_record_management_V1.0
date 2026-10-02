@@ -24,7 +24,7 @@ export function OfficeAppearancePicker({ hue, icon, onChange, usedBy = {}, previ
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: 0, width: 64, cursor: 'pointer' }}>
                 <span style={{ width: 40, height: 40, borderRadius: '50%', background: color, boxShadow: on ? `0 0 0 3px var(--bg-card), 0 0 0 5px ${color}` : 'none', opacity: usedBy[c.hue] && !on ? 0.4 : 1 }} />
                 <span style={{ fontSize: 12, fontWeight: 600 }}>{c.label}</span>
-                <span style={{ fontSize: 11, color: usedBy[c.hue] ? 'var(--t-light)' : 'var(--success)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{usedBy[c.hue] ?? 'Available'}</span>
+                <span style={{ fontSize: 12, color: usedBy[c.hue] ? 'var(--t-light)' : 'var(--success)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{usedBy[c.hue] ?? 'Available'}</span>
               </button>
             );
           })}

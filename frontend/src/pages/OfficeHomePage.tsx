@@ -61,7 +61,7 @@ export function OfficeHomePage({ officeId, office: _office, modules, userName, c
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       <div>
         <div className="ws-eyebrow" style={{ marginBottom: 10 }}>{today}</div>
-        <h1 className="hero-title" style={{ fontSize: 26, margin: 0 }}>{greeting}, {userName.split(/\s+/)[0]}</h1>
+        <h1 className="hero-title" style={{ margin: 0 }}>{greeting}, {userName.split(/\s+/)[0]}</h1>
       </div>
 
       {todoError != null && <LoadError what="your office's to-do list" error={todoError} onRetry={() => setTodoAttempt((n) => n + 1)} />}

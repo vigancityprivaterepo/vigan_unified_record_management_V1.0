@@ -121,7 +121,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
         <div className="card-title-wrap">
           <h3 className="card-title">Queued for admin review</h3>
         </div>
-        <span className="badge warning">needs review</span>
+        <span className="badge warning">Needs review</span>
       </div>
       <p style={{ fontSize: 13, color: 'var(--t-muted)', marginTop: 0 }}>
         Possible duplicates found. Nothing was saved yet. An admin will resolve this from the Duplicate Review

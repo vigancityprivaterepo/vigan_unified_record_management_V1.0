@@ -30,7 +30,7 @@ export function Pagination({
         marginTop: 16,
         paddingTop: 16,
         borderTop: '1px solid var(--border-soft)',
-        fontSize: 12.5,
+        fontSize: 13,
         color: 'var(--t-muted)',
       }}
     >

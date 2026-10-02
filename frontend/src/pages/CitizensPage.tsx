@@ -125,7 +125,7 @@ export function CitizensPage({ initialQuery = '', onNavigate }: { initialQuery?:
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: 'block', fontWeight: 600 }}>
                       {fullName(c)}
-                      {c.isArchived && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--t-light)' }}>(merged)</span>}
+                      {c.isArchived && <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--t-light)' }}>(merged)</span>}
                     </span>
                     <span style={{ display: 'block', fontSize: 13, color: 'var(--t-muted)' }}>
                       {[age !== null ? `${age} yrs` : null, c.barangay?.name].filter(Boolean).join(' · ')}
@@ -222,7 +222,7 @@ function CitizenProfile({ data, onOpen, onOpenHousehold, onUpdated }: {
                     <Icon name={moduleIcon(r.module)} size={19} />
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <div className="ws-eyebrow" style={{ color: officeColor(hue, 'deep'), fontSize: 11 }}>{shortName(r.module.office.name)}</div>
+                    <div className="ws-eyebrow" style={{ color: officeColor(hue, 'deep'), fontSize: 12 }}>{shortName(r.module.office.name)}</div>
                     <div style={{ fontWeight: 600 }}>{r.module.name}</div>
                   </div>
                 </div>

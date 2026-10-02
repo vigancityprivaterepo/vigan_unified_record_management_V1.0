@@ -195,7 +195,7 @@ body {
 .brand-name {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--t-base);
   letter-spacing: -0.02em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -261,13 +261,13 @@ body {
   padding-left: 29px;
   margin: 2px 0 4px;
 }
-.nav-link--sub { padding: 7px 12px; font-size: 12.5px; }
+.nav-link--sub { padding: 7px 12px; font-size: 13px; }
 
 .nav-badge {
   flex: 0 0 auto;
   margin-left: auto;
   font-family: var(--font-body);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   padding: 2px 6px;
@@ -302,12 +302,12 @@ body {
   color: #fff;
   display: grid; place-items: center;
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 .workspace-text { line-height: 1.2; min-width: 0; }
 .workspace-name { font-size: 13px; color: var(--t-base); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace-role { font-size: 11px; color: var(--t-light); text-transform: capitalize; }
+.workspace-role { font-size: 12px; color: var(--t-light); text-transform: capitalize; }
 .workspace-chev { margin-left: auto; color: var(--t-light); flex-shrink: 0; }
 
 /* ============ MAIN ============ */
@@ -441,7 +441,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 }
 .d-footer a { color: var(--primary); font-weight: 600; }
 .d-footer a:hover { color: var(--primary-dark); }
-.d-footer-meta { display: flex; gap: 20px; font-family: var(--font-body); font-size: 10.5px; color: var(--t-light); letter-spacing: 0.06em; }
+.d-footer-meta { display: flex; gap: 20px; font-family: var(--font-body); font-size: 12px; color: var(--t-light); letter-spacing: 0.06em; }
 
 /* ============ DROPDOWNS ============ */
 .dd-wrap { position: relative; }
@@ -481,7 +481,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 .dd-divider { height: 1px; background: var(--border-soft); margin: 6px 0; }
 .dd-profile-head { padding: 14px 18px; border-bottom: 1px solid var(--border-soft); }
 .dd-profile-name { font-size: 13px; font-weight: 600; color: var(--t-base); }
-.dd-profile-email { font-size: 11.5px; color: var(--t-muted); margin-top: 2px; font-family: var(--font-body); letter-spacing: 0.02em; text-transform: capitalize; }
+.dd-profile-email { font-size: 12px; color: var(--t-muted); margin-top: 2px; font-family: var(--font-body); letter-spacing: 0.02em; text-transform: capitalize; }
 
 /* ============ CONTENT + COMMON COMPONENTS ============ */
 /* flex: 1 makes short pages' content fill the space up to the sidebar's
@@ -502,7 +502,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   font-weight: 600;
   font-size: 22px;
   line-height: 1.15;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.01em;
   color: var(--t-base);
   margin: 0 0 8px;
 }
@@ -546,7 +546,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 .btn--outline-danger  { background: transparent; color: var(--danger); border-color: var(--danger); }
 .btn--outline-danger:hover:not(:disabled) { background: var(--danger-soft); }
 .btn--lg { padding: 12px 18px; font-size: 14px; }
-.btn--sm { padding: 6px 10px; font-size: 11.5px; }
+.btn--sm { padding: 6px 10px; font-size: 13px; }
 .btn--icon { padding: 9px; }
 .btn--icon svg { margin: 0; }
 
@@ -580,7 +580,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   color: var(--t-base);
   margin: 0;
 }
-.card-desc { font-size: 12.5px; color: var(--t-muted); margin-top: 4px; }
+.card-desc { font-size: 13px; color: var(--t-muted); margin-top: 4px; }
 .card-action {
   font-size: 12px;
   color: var(--primary);
@@ -637,7 +637,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 
 /* Generic tag */
 .tag {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   padding: 3px 9px;
   border-radius: var(--r-sm);
@@ -689,7 +689,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
 /* ---- Badge ---- */
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 999px;
@@ -750,8 +750,8 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   display: flex; align-items: center; gap: 6px;
 }
 .field-label .req { color: var(--danger); }
-.field-help { font-size: 11.5px; color: var(--t-muted); line-height: 1.45; }
-.field-error { font-size: 11.5px; color: var(--danger); display: flex; align-items: center; gap: 4px; }
+.field-help { font-size: 13px; color: var(--t-muted); line-height: 1.45; }
+.field-error { font-size: 13px; color: var(--danger); display: flex; align-items: center; gap: 4px; }
 
 .input, .select, .textarea {
   width: 100%;
@@ -886,11 +886,11 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   color: var(--t-base);
   margin: 0 0 6px;
 }
-.auth-card .sub { font-size: 13.5px; color: var(--t-muted); margin: 0 0 24px; line-height: 1.55; }
+.auth-card .sub { font-size: 14px; color: var(--t-muted); margin: 0 0 24px; line-height: 1.55; }
 .auth-form { display: flex; flex-direction: column; gap: 14px; }
 .auth-submit { margin-top: 4px; }
 .auth-submit.btn { padding: 11px 14px; width: 100%; }
-.auth-main-bottom { margin-top: 20px; font-size: 11.5px; color: var(--t-light); text-align: center; line-height: 1.7; }
+.auth-main-bottom { margin-top: 20px; font-size: 12px; color: var(--t-light); text-align: center; line-height: 1.7; }
 
 /* ============ DASHBOARD-SPECIFIC (KPIs) ============ */
 
@@ -945,7 +945,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   border-top: 1px dashed var(--border-soft);
   margin-top: auto;
 }
-.kpi-compare strong { color: var(--t-base); font-weight: 600; font-family: var(--font-body); font-size: 11.5px; letter-spacing: -0.01em; }
+.kpi-compare strong { color: var(--t-base); font-weight: 600; font-family: var(--font-body); font-size: 12px; letter-spacing: -0.01em; }
 
 /* ============ INSIGHTS ============ */
 
@@ -957,7 +957,7 @@ body.has-drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
   border-radius: 10px;
 }
 .insights-filter-chip {
-  font-size: 12.5px; font-weight: 500;
+  font-size: 13px; font-weight: 500;
   color: var(--primary-dark);
   background: var(--bg-card);
   border: 1px solid var(--border);

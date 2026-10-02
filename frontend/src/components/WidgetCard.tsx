@@ -62,7 +62,7 @@ export function WidgetCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-base)', display: 'block' }}>{widget.title}</span>
-          <span style={{ fontSize: 11, color: 'var(--t-muted)' }}>
+          <span style={{ fontSize: 12, color: 'var(--t-muted)' }}>
             {widget.sourceModules.map((m) => m.name).join(', ')}
             {filterParts.length > 0 ? ` · ${filterParts.join(' · ')}` : ''}
           </span>

@@ -7,7 +7,7 @@ import type { CityInsights, SankeyBucket } from '@/lib/api';
 // (same as Barangay ranking); categories in a stack use the chart palette.
 // Every chart reads already-shaped data; the page owns filters and fetches.
 
-const tick = { fontSize: 11, fill: 'var(--t-muted)' };
+const tick = { fontSize: 12, fill: 'var(--t-muted)' };
 const tipStyle = { borderRadius: 'var(--r-md)', fontSize: 12 };
 const short = (s: string, n = 28) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 

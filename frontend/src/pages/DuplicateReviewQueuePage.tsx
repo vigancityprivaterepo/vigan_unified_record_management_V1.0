@@ -45,7 +45,7 @@ export function DuplicateReviewQueuePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="hero">
         <div className="hero-text">
-          <h1 className="hero-title">Duplicate Review Queue</h1>
+          <h1 className="hero-title">Duplicate review</h1>
         </div>
       </div>
 
@@ -80,7 +80,7 @@ export function DuplicateReviewQueuePage() {
                 {new Date(item.createdAt).toLocaleString()}
               </p>
             </div>
-            <span className="badge warning">pending</span>
+            <span className="badge warning">Pending</span>
           </div>
 
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--t-base)', marginBottom: 8 }}>

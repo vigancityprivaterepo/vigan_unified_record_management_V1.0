@@ -79,7 +79,7 @@ export function CitizenPicker({
 
       {results && (
         <ul style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
-          {results.length === 0 && <li style={{ fontSize: 12.5, color: 'var(--t-muted)' }}>No matches.</li>}
+          {results.length === 0 && <li style={{ fontSize: 13, color: 'var(--t-muted)' }}>No matches.</li>}
           {results.map((c) => (
             <li key={c.personKey}>
               <button
@@ -91,7 +91,7 @@ export function CitizenPicker({
                 <span style={{ color: 'var(--t-base)' }}>
                   {c.personLname}, {c.personFname} {c.personMname ?? ''}
                 </span>
-                <span style={{ color: 'var(--t-muted)', fontSize: 11.5 }}>
+                <span style={{ color: 'var(--t-muted)', fontSize: 12 }}>
                   {c.personBdate?.slice(0, 10)} &middot; {c.barangay?.name ?? 'No barangay'}
                 </span>
               </button>

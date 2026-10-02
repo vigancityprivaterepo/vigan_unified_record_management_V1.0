@@ -27,7 +27,7 @@ export function mutedColor(): string {
 }
 
 export const axisProps = {
-  tick: { fill: 'var(--t-light)', fontSize: 11 },
+  tick: { fill: 'var(--t-light)', fontSize: 12 },
   axisLine: false as const,
   tickLine: false as const,
 };

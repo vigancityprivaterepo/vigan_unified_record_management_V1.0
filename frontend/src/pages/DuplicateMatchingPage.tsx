@@ -11,7 +11,7 @@ export function DuplicateMatchingPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="hero">
         <div className="hero-text">
-          <h1 className="hero-title">Duplicate Matching</h1>
+          <h1 className="hero-title">Matching settings</h1>
         </div>
       </div>
       <ThresholdSettingsSection />

@@ -33,8 +33,8 @@ export function BarangayRankingChart({
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={top} layout="vertical" margin={{ left: 8, right: 24 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" horizontal={false} />
-        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
-        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
+        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: 'var(--t-muted)' }} />
+        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: 'var(--t-muted)' }} />
         <Tooltip contentStyle={{ borderRadius: 'var(--r-md)', fontSize: 12 }} formatter={(value) => [value, 'Citizens']} />
         <Bar isAnimationActive={false}
           dataKey="count"

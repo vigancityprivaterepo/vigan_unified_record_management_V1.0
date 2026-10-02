@@ -293,7 +293,8 @@ function ComboSection({
         onDataLoaded(d);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load program combinations'));
-    
+    // onDataLoaded is a stable page-level setter; re-run only when the barangay changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [barangayCode]);
 
   if (error || !data) return <AsyncState error={error} loading={!data} />;

@@ -33,10 +33,10 @@ export function TrendChart({ data, onMonthClick }: { data: TrendPoint[]; onMonth
         style={{ cursor: 'pointer' }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
-        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
+        <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--t-muted)' }} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'var(--t-muted)' }} />
         <Tooltip contentStyle={{ borderRadius: 'var(--r-md)', fontSize: 12 }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
         <Line isAnimationActive={false} type="monotone" dataKey="registrations" name="New registrations" stroke={REGISTRATIONS_COLOR} strokeWidth={2} dot={{ r: 4 }} />
         <Line isAnimationActive={false} type="monotone" dataKey="merges" name="Dedup merges" stroke={MERGES_COLOR} strokeWidth={2} dot={{ r: 4 }} />
       </LineChart>
