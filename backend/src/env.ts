@@ -42,9 +42,12 @@ export const env = {
   // ships); set COOKIE_SECURE=true only if a TLS-terminating reverse proxy
   // is added in front of this stack.
   cookieSecure: process.env.COOKIE_SECURE === 'true',
-  // Frontend origin allowed to make credentialed (cookie-bearing) CORS
-  // requests. Vite dev server default; override in Docker/prod.
-  corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  // Frontend origins allowed to make credentialed (cookie-bearing) CORS
+  // requests, comma-separated. Vite dev server default; override in Docker/prod.
+  corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 
   // 'minio' (default, Docker stack) or 'local' (folder on the server).
   documentStorage: process.env.DOCUMENT_STORAGE === 'local' ? ('local' as const) : ('minio' as const),

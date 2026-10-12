@@ -37,7 +37,24 @@ export function createApp(options?: {
   // "*" isn't allowed together with credentials: true.
   // exposedHeaders: lets the browser read the export file name across the
   // frontend/backend origins (otherwise every CSV saves under a fallback name).
-  app.use(cors({ origin: env.corsOrigin, credentials: true, exposedHeaders: ['Content-Disposition'] }));
+  // Besides CORS_ORIGIN, an origin on the same host as the request is allowed:
+  // the app is also opened by the server's LAN address (http://<ip>:5173), and
+  // that address isn't known ahead of time.
+  app.use(
+    cors((req, callback) => {
+      const origin = req.headers.origin;
+      const host = req.headers.host?.replace(/:\d+$/, '');
+      let allowed = false;
+      if (origin) {
+        try {
+          allowed = env.corsOrigins.includes(origin) || new URL(origin).hostname === host;
+        } catch {
+          allowed = false;
+        }
+      }
+      callback(null, { origin: allowed, credentials: true, exposedHeaders: ['Content-Disposition'] });
+    }),
+  );
   // 2mb: a bulk import chunk (up to 500 spreadsheet rows) exceeds the 100kb default.
   app.use(express.json({ limit: '2mb' }));
   app.use(createSessionMiddleware(options?.sessionIdleTimeoutMs));

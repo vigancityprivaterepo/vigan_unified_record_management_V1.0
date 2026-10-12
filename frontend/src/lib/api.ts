@@ -1,5 +1,7 @@
 import { registerShortNames } from '@/lib/shortNames';
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000';
+// Same host the page was opened on, so the session cookie (SameSite=Lax) is
+// sent whether the app is reached as localhost or by the server's LAN address.
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? `${window.location.protocol}//${window.location.hostname}:4000`;
 
 export class ApiError extends Error {
   code: string;
