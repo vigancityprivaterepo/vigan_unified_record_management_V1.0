@@ -119,13 +119,17 @@ export type FuzzyCandidate = {
   similarity: number;
 };
 
+// Only on a Death record: what recording it changed elsewhere
+// (backend/src/services/deathEffects.ts).
+export type DeathEffects = { removedFrom: string[]; household: { head: string; newHead: boolean } | null };
+
 // Every module's intake endpoint returns one of these. `householdLinkWarning`
 // only ever appears on the 'created'/'matched' variant -- household linking
 // needs a resolved personKey, so it's the only branch that attempts it (see
 // office.ts's intake route). Its presence means the record itself still
 // saved fine; only the optional household link didn't go through.
 export type IntakeResult =
-  | { status: 'created' | 'matched'; personKey: string; recordId: string; householdLinkWarning?: string }
+  | { status: 'created' | 'matched'; personKey: string; recordId: string; householdLinkWarning?: string; deathEffects?: DeathEffects }
   | { status: 'needs_review'; candidates: FuzzyCandidate[] }
   // A module with requiresCitizenLink=false (or linkToCitizen=false on a
   // submission to one that allows it) records with no Citizen link at all.

@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { applyDeath } from './deathEffects';
 import { insertAuditLog } from '../lib/auditLog';
 import { getFuzzyMatchThreshold } from './config';
 
@@ -113,6 +114,7 @@ async function linkOne(client: PrismaClient, moduleId: string, recordId: string,
     tableName: 'OfficeRecord', recordId, action: 'update', actorUserId: actor.userId, actorRole: actor.role,
     changedFields: { event: 'registry_link', how, personKey, recordedName: rec.unresolvedPerson ?? null },
   });
+  await applyDeath(client, recordId, actor);
   return { ok: true as const };
 }
 

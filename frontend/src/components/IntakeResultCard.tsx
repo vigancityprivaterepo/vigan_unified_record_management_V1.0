@@ -1,4 +1,4 @@
-import type { IntakeResult } from '@/lib/api';
+import type { DeathEffects, IntakeResult } from '@/lib/api';
 
 // Shared across every office intake form -- resolvePerson()'s three
 // outcomes (plus Birth's "recorded, no citizen link" case) always render
@@ -24,6 +24,29 @@ function HouseholdLinkWarning({ message }: { message: string }) {
   );
 }
 
+// A Death record changes other parts of the registry on its own; say what.
+function DeathEffectsNote({ effects }: { effects: DeathEffects }) {
+  const lines = [
+    effects.household?.newHead ? `${effects.household.head} now heads the household.` : effects.household ? `Removed from the household of ${effects.household.head}.` : null,
+    effects.removedFrom.length > 0 ? `Taken off: ${effects.removedFrom.join(', ')}.` : null,
+    'No longer shown in the Citizens list. The death record stays in this program.',
+  ].filter(Boolean);
+  return (
+    <div className="alert" style={{ marginTop: 8 }}>
+      <div className="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v5M12 16h.01" />
+        </svg>
+      </div>
+      <div className="body">
+        <div className="title">The registry was updated</div>
+        {lines.join(' ')} If this record is a mistake, archive it and these changes are undone.
+      </div>
+    </div>
+  );
+}
+
 export function IntakeResultCard({ result }: { result: IntakeResult }) {
   if (result.status === 'created') {
     return (
@@ -44,6 +67,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
           </div>
         </div>
         {result.householdLinkWarning && <HouseholdLinkWarning message={result.householdLinkWarning} />}
+        {result.deathEffects && <DeathEffectsNote effects={result.deathEffects} />}
       </>
     );
   }
@@ -68,6 +92,7 @@ export function IntakeResultCard({ result }: { result: IntakeResult }) {
           </div>
         </div>
         {result.householdLinkWarning && <HouseholdLinkWarning message={result.householdLinkWarning} />}
+        {result.deathEffects && <DeathEffectsNote effects={result.deathEffects} />}
       </>
     );
   }

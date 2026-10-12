@@ -4,6 +4,7 @@ import { buildDynamicFieldsSchema, type DynamicFieldDef } from '../lib/dynamicFi
 import { insertAuditLog } from '../lib/auditLog';
 import { uppercaseFreeText, uppercaseStrings } from '../lib/textNormalize';
 import { addHouseholdMember, designateHouseholdHead } from './households';
+import { applyDeath, type DeathEffects } from './deathEffects';
 import { createOfficeRecord } from './officeSatelliteWriters';
 import { assertNoReliefClaim, ReliefAlreadyClaimedError, type ReliefConflict } from './reliefClaims';
 import { resolvePerson } from './resolvePerson';
@@ -69,7 +70,7 @@ export type IntakeOutcome =
   | { kind: 'recorded'; recordId: string }
   | { kind: 'recorded_no_citizen_link'; recordId: string }
   | { kind: 'needs_review'; candidates: unknown[] }
-  | { kind: 'linked'; status: 'matched' | 'created'; personKey: string; recordId: string; householdLinkWarning?: string }
+  | { kind: 'linked'; status: 'matched' | 'created'; personKey: string; recordId: string; householdLinkWarning?: string; deathEffects?: DeathEffects }
   | { kind: 'already_received'; message: string; conflict: ReliefConflict };
 
 // Writes one validated intake. Throws only on unexpected failures.
@@ -176,5 +177,9 @@ export async function submitIntake(
     }
   }
 
-  return { kind: 'linked', status: resolveResult.status, personKey, recordId: record.recordId, householdLinkWarning };
+  // A death record takes the person out of their household and off program
+  // lists (services/deathEffects.ts); nothing happens for any other program.
+  const deathEffects = (await applyDeath(client, record.recordId, actor)) ?? undefined;
+
+  return { kind: 'linked', status: resolveResult.status, personKey, recordId: record.recordId, householdLinkWarning, deathEffects };
 }

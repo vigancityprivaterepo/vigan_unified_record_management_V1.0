@@ -6,6 +6,7 @@ import { sendError } from '../lib/errors';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
 import { mergeCitizens } from '../services/mergeCitizens';
+import { applyDeathsFor } from '../services/deathEffects';
 import { createOfficeRecord } from '../services/officeSatelliteWriters';
 import { assertNoReliefClaim, ReliefAlreadyClaimedError } from '../services/reliefClaims';
 
@@ -168,6 +169,7 @@ adminReviewRouter.post('/:id/approve', requireRole('admin'), async (req, res) =>
       return result;
     });
 
+    await applyDeathsFor(client, parsed.data.winningPersonKey, { userId: actorUserId, role: 'admin' });
     res.json({ status: 'approved', winningPersonKey: parsed.data.winningPersonKey, mergeResult });
   } catch (err) {
     if (err instanceof ReliefAlreadyClaimedError) {
@@ -219,6 +221,7 @@ adminReviewRouter.post('/:id/reject', requireRole('admin'), async (req, res) => 
       return materialized;
     });
 
+    await applyDeathsFor(client, personKey, { userId: actorUserId, role: 'admin' });
     res.json({ status: 'rejected', personKey });
   } catch (err) {
     console.error(err);

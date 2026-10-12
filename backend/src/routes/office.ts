@@ -14,6 +14,7 @@ import { makeDocumentObjectKey } from '../lib/sanitizeFilename';
 import { uppercaseFreeText, uppercaseStrings } from '../lib/textNormalize';
 import { requireOfficeAccess } from '../middleware/auth';
 import { allModuleRecords, listModuleRecords, parseStatus, type RecordStatus } from '../services/officeRecordList';
+import { applyDeath, undoDeath } from '../services/deathEffects';
 import { parseIntake, submitIntake } from '../services/intakeSubmission';
 
 // The staff-facing side of every office -- CSWD/Agriculture/Civil Registry
@@ -217,6 +218,7 @@ officeRouter.post(
             personKey: outcome.personKey,
             recordId: outcome.recordId,
             householdLinkWarning: outcome.householdLinkWarning,
+            deathEffects: outcome.deathEffects,
           });
           return;
       }
@@ -489,6 +491,7 @@ officeRouter.post(
       actorRole: req.session.role,
       changedFields: { event: 'restore', reason: parsed.data.reason, moduleId: officeModule.id },
     });
+    await applyDeath(client, record.id, { userId: actorUserId, role: req.session.role! });
     res.status(204).end();
   }),
 );
@@ -539,6 +542,8 @@ officeRouter.delete('/:officeId/modules/:moduleId/records/:recordId', requireOff
     actorRole: role,
     changedFields: { reason: parsed.data.reason, moduleId: officeModule.id },
   });
+  // A death record archived as a mistake puts the person back (services/deathEffects.ts).
+  await undoDeath(client, record.id, { userId: actorUserId, role });
 
   res.status(204).end();
 });

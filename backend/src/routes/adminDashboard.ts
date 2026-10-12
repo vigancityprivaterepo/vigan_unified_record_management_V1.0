@@ -10,6 +10,7 @@ import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
 import { addHouseholdMember, designateHouseholdHead } from '../services/households';
 import { categoriesForPersonKeys } from '../services/insights';
+import { ALIVE } from '../services/deathEffects';
 
 export const adminDashboardRouter = Router();
 adminDashboardRouter.use(requireRole('admin'));
@@ -23,7 +24,7 @@ adminDashboardRouter.get('/dashboard/summary', async (_req, res) => {
   monthStart.setHours(0, 0, 0, 0);
 
   const [citizenCount, officeCount, moduleCount, recordsThisMonth] = await Promise.all([
-    client.citizen.count({ where: { isArchived: false } }),
+    client.citizen.count({ where: { isArchived: false, ...ALIVE } }),
     client.office.count({ where: { isActive: true } }),
     client.officeModule.count(),
     client.officeRecord.count({ where: { isArchived: false, createdAt: { gte: monthStart } } }),
@@ -52,14 +53,19 @@ adminDashboardRouter.get('/citizens', async (req, res) => {
   const page = parsePage(req.query.page);
   const client = getPrismaForRole('admin');
 
-  const where = q
-    ? {
-        OR: [
-          { personLname: { contains: q, mode: 'insensitive' as const } },
-          { personFname: { contains: q, mode: 'insensitive' as const } },
-        ],
-      }
-    : undefined;
+  // People with a death record are left out (services/deathEffects.ts);
+  // their death record stays in Civil Registry's Death program.
+  const where = {
+    ...ALIVE,
+    ...(q
+      ? {
+          OR: [
+            { personLname: { contains: q, mode: 'insensitive' as const } },
+            { personFname: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
 
   const [total, citizens] = await Promise.all([
     client.citizen.count({ where }),
@@ -105,7 +111,7 @@ adminDashboardRouter.get(
     const client = getPrismaForRole('admin');
     const [citizens, offices] = await Promise.all([
       client.citizen.findMany({
-        where: { isArchived: false },
+        where: { isArchived: false, ...ALIVE },
         select: {
           personKey: true,
           personLname: true,
