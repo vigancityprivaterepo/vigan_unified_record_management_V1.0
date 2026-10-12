@@ -79,9 +79,7 @@ export function AdminInsightsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="hero">
         <div className="hero-text">
-          <h1 className="hero-title">Insights</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0' }}>Click a bar or a point to filter the page. Each chart says what it shows right now.</p>
-        </div>
+          <h1 className="hero-title">Insights</h1>        </div>
       </div>
 
       {hasActiveFilter(filters) && (

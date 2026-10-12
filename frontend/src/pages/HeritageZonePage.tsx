@@ -25,11 +25,7 @@ export function HeritageZonePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
-          <h1>Heritage zone</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 760 }}>
-            Businesses, building and occupancy permits and zoning clearances inside the barangays you mark as the heritage zone. Building permits and zoning clearances also count when their own record says they are in the zone.
-          </p>
-        </div>
+          <h1>Heritage zone</h1>        </div>
         {d && <button type="button" className="btn btn--ghost btn--lg" onClick={() => setChoosing(true)}>Choose barangays</button>}
       </div>
       {error != null && <LoadError what="the heritage zone" error={error} onRetry={reload} />}

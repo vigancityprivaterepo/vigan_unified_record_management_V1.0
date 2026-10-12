@@ -67,11 +67,7 @@ export function DisasterListsPage({ officeId }: { officeId?: string } = {}) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
-          <h1>Disaster lists</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 760 }}>
-            Residents who may need help to evacuate before a typhoon or flood: seniors 60 and older, children under 5, persons with disability, pregnant women and solo parents. Print one barangay&apos;s list for the barangay captain and rescue teams.
-          </p>
-        </div>
+          <h1>Disaster lists</h1>        </div>
         <button type="button" className="btn btn--ghost btn--lg" onClick={exportAll} disabled={exporting || !t?.people}>
           <Icon name="download" size={16} /> {exporting ? 'Exporting...' : 'Export all (CSV)'}
         </button>

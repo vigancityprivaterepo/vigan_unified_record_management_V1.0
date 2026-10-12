@@ -43,11 +43,6 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
           <h1>Program gaps</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 720 }}>
-            {officeId
-              ? 'People who qualify for your programs but are not in them yet, and your lists that need cleanup. The city administrator sets the rules.'
-              : 'People who qualify for a program but are not in it yet, and lists that need cleanup. Nothing is changed automatically.'}
-          </p>
         </div>
         <select className="select" style={{ width: 'auto', minWidth: 200 }} aria-label="Filter by barangay" value={barangayCode} onChange={(e) => setBarangayCode(e.target.value)}>
           <option value="">All barangays</option>

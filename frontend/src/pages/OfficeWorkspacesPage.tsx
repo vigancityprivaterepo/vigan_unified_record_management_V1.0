@@ -31,9 +31,7 @@ export function OfficeWorkspacesPage({ onNavigate, initialQuery = '' }: { onNavi
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div className="ws-page-head">
         <div className="grow">
-          <h1>Office workspaces</h1>
-          <p>Open an office to see its records and charts.</p>
-        </div>
+          <h1>Office workspaces</h1>        </div>
       </div>
 
       <div className="ws-list-search">

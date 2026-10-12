@@ -24,11 +24,7 @@ export function PrivacyPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div className="ws-page-head" style={{ alignItems: 'flex-end' }}>
         <div className="grow">
-          <h1>Privacy</h1>
-          <p className="ws-kpi-sub" style={{ margin: '6px 0 0', maxWidth: 760 }}>
-            For the Data Protection Officer: who viewed and exported citizens&apos; data, and citizens&apos; requests under the Data Privacy Act (RA 10173). Read from the audit log, which nobody can edit or delete.
-          </p>
-        </div>
+          <h1>Privacy</h1>        </div>
         <div className="ws-seg" role="tablist" aria-label="Privacy view">
           <button type="button" role="tab" aria-selected={tab === 'access'} className={tab === 'access' ? 'is-on' : ''} onClick={() => setTab('access')}>Access report</button>
           <button type="button" role="tab" aria-selected={tab === 'requests'} className={tab === 'requests' ? 'is-on' : ''} onClick={() => setTab('requests')}>Data requests</button>
