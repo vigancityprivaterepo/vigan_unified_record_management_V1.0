@@ -11,6 +11,8 @@ export type WidgetApi = {
   setOnDashboard: (id: string, on: boolean) => Promise<unknown>;
   data: (id: string) => Promise<WidgetSeriesRow[]>;
   loadFields: (officeId: string, moduleId: string) => Promise<OfficeFormField[]>;
+  // Route of one chart, for looking at the records behind it.
+  chartBase: (id: string) => string;
 };
 
 export const adminWidgetApi: WidgetApi = {
@@ -21,6 +23,7 @@ export const adminWidgetApi: WidgetApi = {
   setOnDashboard: api.setWidgetOnDashboard,
   data: api.getDashboardWidgetData,
   loadFields: api.listOfficeModuleFields,
+  chartBase: (id) => `/admin/dashboard/widgets/${id}`,
 };
 
 export function officeWidgetApi(officeId: string): WidgetApi {
@@ -32,5 +35,6 @@ export function officeWidgetApi(officeId: string): WidgetApi {
     setOnDashboard: (id, on) => api.setOfficeWidgetOnDashboard(officeId, id, on),
     data: (id) => api.getOfficeWidgetData(officeId, id),
     loadFields: (_officeId, moduleId) => api.getOfficeModuleFields(officeId, moduleId),
+    chartBase: (id) => `/offices/${officeId}/widgets/${id}`,
   };
 }

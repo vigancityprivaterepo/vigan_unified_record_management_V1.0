@@ -19,7 +19,7 @@ const MAX_GROUP_BY_DIMENSIONS = 2;
 
 // 'count' = number of records; 'sum:<fieldKey>' = total of a NUMBER field.
 // Values that aren't plain numbers (blank, typos) are skipped, not errors.
-function measureSql(measure: string): Prisma.Sql {
+export function measureSql(measure: string): Prisma.Sql {
   // Distinct people, not records -- one person can get assistance many times.
   if (measure === 'people') return Prisma.sql`COUNT(DISTINCT t.person_key)`;
   if (measure.startsWith('sum:')) {
@@ -35,7 +35,7 @@ type DimensionSql = { expr: Prisma.Sql; needsCitizen: boolean; needsBarangay: bo
 // kinds every single-dimension groupBy has always supported ('barangay',
 // 'sex', 'month', 'age_bracket', 'field:<key>'), composable so 1-2 of them
 // can combine into one query.
-function dimensionSql(dim: string): DimensionSql {
+export function dimensionSql(dim: string): DimensionSql {
   if (dim === 'barangay') {
     return { expr: Prisma.sql`COALESCE(b.name, 'No barangay')`, needsCitizen: true, needsBarangay: true };
   }
@@ -88,7 +88,7 @@ function dimensionSql(dim: string): DimensionSql {
 // (no join to the barangay table needed, unlike the barangay-name
 // *dimension* above which displays the name); month compares office_record's
 // own created_at, no Citizen join needed at all.
-function filterSql(filters: WidgetFilters): { needsCitizen: boolean; clauses: Prisma.Sql[] } {
+export function filterSql(filters: WidgetFilters): { needsCitizen: boolean; clauses: Prisma.Sql[] } {
   const clauses: Prisma.Sql[] = [];
   let needsCitizen = false;
   if (filters.barangayCode) {

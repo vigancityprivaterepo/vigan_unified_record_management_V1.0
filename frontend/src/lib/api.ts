@@ -480,6 +480,27 @@ export type WidgetSeriesRow = { label: string | null; counts: number[] };
 // fields -- one request shape for every module (see backend/src/routes/
 // office.ts). Core fields go as individual text parts, admin-defined
 // non-file fields as one JSON-encoded `fields` part, and FILE fields as
+// What is behind a chart (backend/src/services/widgetExplore.ts).
+export type ChartColumn = { key: string; label: string; type: string };
+export type ChartRecord = {
+  id: string; addedOn: string; person: string | null; barangay: string | null; sex: string | null; age: number | null;
+  sample: boolean; values: Record<string, unknown>;
+};
+export type ChartRecords = Paginated<ChartRecord> & { columns: ChartColumn[] };
+export type ChartSummary = {
+  moduleId: string; records: number; people: number; first: string | null; last: string | null;
+  sum: number | null; average: number | null; median: number | null; min: number | null; max: number | null;
+};
+export type ChartHistory = { months: Array<{ month: string; values: number[] }>; summary: ChartSummary[] };
+export type ChartFieldProfile = {
+  key: string; label: string; type: string; options: number;
+  filled: number; distinct: number; min: number | null; max: number | null; average: number | null;
+};
+export type ChartModuleProfile = {
+  moduleId: string; records: number; profiled: number; sample: number; people: number; notLinked: number;
+  aboutPeople: boolean; first: string | null; last: string | null; fields: ChartFieldProfile[];
+};
+
 // actual file parts named by their field key.
 function officeRecordFormData(
   // Undefined for a collectPersonInfo=false module -- it isn't about a
@@ -852,6 +873,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ winningPersonKey }),
     }),
+  // `base` is the chart's own route: admin's, or one office's (lib/widgetApi.ts).
+  chartRecords: (base: string, f: { moduleId?: string; label?: string; page?: number }) =>
+    request<ChartRecords>(`${base}/explore/records${queryString(f)}`),
+  exportChartRecords: (base: string, f: { moduleId?: string; label?: string }) =>
+    download(`${base}/explore/records.csv${queryString(f)}`, 'chart-records.csv'),
+  chartHistory: (base: string, label?: string) => request<ChartHistory>(`${base}/explore/history${queryString({ label })}`),
+  chartProfile: (base: string) => request<ChartModuleProfile[]>(`${base}/explore/profile`),
   rejectReview: (id: string) =>
     request<{ status: 'rejected'; personKey: string }>(`/admin/duplicate-review-queue/${id}/reject`, {
       method: 'POST',

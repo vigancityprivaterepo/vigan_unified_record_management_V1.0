@@ -14,6 +14,7 @@ import {
   widgetData,
   widgetPayloadSchema,
 } from './adminDashboardWidgets';
+import { exploreHistory, exploreProfile, exploreRecords, exploreRecordsCsv, labelOf } from './widgetExploreHandlers';
 
 // Office staff's own charts, so each office can tell its own data story.
 // Same recipe/validation as admin's visualizations (adminDashboardWidgets.ts),
@@ -225,3 +226,26 @@ officeWidgetsRouter.get(
     res.json(await widgetData(client, req.params.id!));
   }),
 );
+
+// What is behind a chart this office may see: records, history, data profile.
+async function visibleChart(client: PrismaClient, req: Request, res: Response): Promise<string | null> {
+  const officeId = req.params.officeId!;
+  const w = await client.dashboardWidget.findUnique({ where: { id: req.params.id }, select: { officeId: true, sources: { select: { moduleId: true } } } });
+  if (!w || !visibleTo(w, officeId, await officeModuleIds(client, officeId))) {
+    sendError(res, 404, 'NOT_FOUND', 'No such chart for this office');
+    return null;
+  }
+  return req.params.id!;
+}
+type ExploreHandler = (client: PrismaClient, req: Request, res: Response, widgetId: string) => Promise<void>;
+const explore = (handler: ExploreHandler) =>
+  asyncHandler(async (req, res) => {
+    const client = getPrismaForRole(req.session.role!);
+    const id = await visibleChart(client, req, res);
+    if (id) await handler(client, req, res, id);
+  });
+
+officeWidgetsRouter.get('/:officeId/widgets/:id/explore/records', requireOfficeAccess, explore(exploreRecords));
+officeWidgetsRouter.get('/:officeId/widgets/:id/explore/records.csv', requireOfficeAccess, explore(exploreRecordsCsv));
+officeWidgetsRouter.get('/:officeId/widgets/:id/explore/history', requireOfficeAccess, explore((client, req, res, id) => exploreHistory(client, req, res, id, labelOf(req))));
+officeWidgetsRouter.get('/:officeId/widgets/:id/explore/profile', requireOfficeAccess, explore(exploreProfile));

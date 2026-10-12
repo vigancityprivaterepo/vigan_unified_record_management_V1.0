@@ -13,7 +13,7 @@ const OFFICE_BASE: Item[] = [
   ['Correct a record', 'Use the Edit button on the record and give a reason. The old and new values are saved to the audit trail. To fix the name or birthdate of a registered citizen, ask an administrator.'],
   ['Remove a mistake', 'Use the Archive button on the record and give a reason. Archived records stay under the Archived filter, where Restore brings them back.'],
   ['Import from a spreadsheet', 'On Records, choose Import and pick a CSV file. Match its columns to the form, then Check rows: nothing is saved until you import. Rows with problems are skipped and can be downloaded to fix.'],
-  ['Charts', 'Build charts from your office’s programs on Charts. Pin to Home shows a chart on your Home page.'],
+  ['Charts', 'Build charts from your office’s programs on Charts. Pin to Home shows a chart on your Home page. Open a chart and click a bar, slice or point to list the records it counts. History shows the same numbers month by month, and Data used shows what each program collects and how completely it is filled in. Opening or exporting the records is recorded in the audit log.'],
   ['Report', 'On Records, Report counts a program’s registrations for any period by sex, age group, barangay and month. Print it or export it as CSV.'],
 ];
 
@@ -24,7 +24,7 @@ const OFFICE_LINK: Item = ['Link to registry', 'For programs where the registry 
 
 const ADMIN_HELP: Item[] = [
   ['Overview', 'Which barangays the city’s programs reach, entries per month by office, and citizens in more than one program. Click a barangay to filter the page. Export masterlist downloads every citizen.'],
-  ['Visualizations', 'Build charts from any office’s programs. Add to dashboard shows a chart on the dashboard.'],
+  ['Visualizations', 'Build charts from any office’s programs. Add to dashboard shows a chart on the dashboard. Open a chart and click a bar, slice or point to list the records it counts. History shows the same numbers month by month, and Data used shows what each program collects and how completely it is filled in. Opening or exporting the records is recorded in the audit log.'],
   ['Insights', 'Charts across all offices: program combinations, barangay ranking, underserved barangays, households by number of programs, registrations over time, and what each office must fix in its data. Click a bar or a point to filter the page.'],
   ['Citizens and Households', 'Look up a person or a household. A citizen’s profile shows their records in every office, and under Privacy, who viewed or changed the record.'],
   ['Program gaps', 'People who qualify for a program but are not in it, and lists that need cleanup. Manage rules adds, edits or switches off a rule. Each office sees the rules for its own programs.'],

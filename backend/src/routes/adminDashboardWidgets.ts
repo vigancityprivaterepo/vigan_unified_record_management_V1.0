@@ -7,6 +7,7 @@ import { sendError } from '../lib/errors';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
 import { computeWidgetData } from '../services/dashboardWidgets';
+import { exploreHistory, exploreProfile, exploreRecords, exploreRecordsCsv, labelOf } from './widgetExploreHandlers';
 
 // Admin-authored custom dashboard visualizations -- see the DashboardWidget
 // model's comment in schema.prisma and services/dashboardWidgets.ts for the
@@ -443,3 +444,9 @@ adminDashboardWidgetsRouter.get('/:id/data', async (req, res) => {
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to compute widget data');
   }
 });
+
+// What is behind a chart: its records, its history, and what its programs collect.
+adminDashboardWidgetsRouter.get('/:id/explore/records', asyncHandler((req, res) => exploreRecords(getPrismaForRole('admin'), req, res, req.params.id!)));
+adminDashboardWidgetsRouter.get('/:id/explore/records.csv', asyncHandler((req, res) => exploreRecordsCsv(getPrismaForRole('admin'), req, res, req.params.id!)));
+adminDashboardWidgetsRouter.get('/:id/explore/history', asyncHandler((req, res) => exploreHistory(getPrismaForRole('admin'), req, res, req.params.id!, labelOf(req))));
+adminDashboardWidgetsRouter.get('/:id/explore/profile', asyncHandler((req, res) => exploreProfile(getPrismaForRole('admin'), req, res, req.params.id!)));

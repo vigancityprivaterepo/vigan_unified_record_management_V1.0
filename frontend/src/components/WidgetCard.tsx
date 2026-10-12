@@ -17,12 +17,17 @@ export function WidgetCard({
   onEdit,
   onDelete,
   loadData,
+  onSelect,
+  selected,
 }: {
   widget: DashboardWidget;
   onEdit?: () => void;
   onDelete?: () => void;
   // Office boards fetch through the office's own route.
   loadData?: (id: string) => Promise<WidgetSeriesRow[]>;
+  // Clicking a bar, slice or point picks that group (its label).
+  onSelect?: (label: string) => void;
+  selected?: string | null;
 }) {
   const [rows, setRows] = useState<WidgetSeriesRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +54,12 @@ export function WidgetCard({
   const ariaLabel = `${widget.title}: ${widget.chartType} chart of ${widget.sourceModules.map((m) => m.name).join(', ')}`;
 
   const total = rows?.[0]?.counts.reduce((sum, c) => sum + c, 0) ?? 0;
+  // Past the slice limit the last donut slice is several small groups added
+  // together, so there is no single group to open.
+  const isMerged = (i: number) => (rows?.length ?? 0) > MAX_DONUT_SLICES && i === slices.length - 1;
+  const clickable = onSelect ? { cursor: 'pointer' as const } : undefined;
+  // A picked group stays solid; the rest fade back.
+  const dim = (label: unknown) => (selected != null && label !== selected ? 0.35 : 1);
 
   const filterParts = [
     widget.filterBarangayName ? `Barangay: ${widget.filterBarangayName}` : null,
@@ -105,14 +116,17 @@ export function WidgetCard({
       {chartData && chartData.length > 0 && widget.chartType === 'bar' && (
         <div style={{ height: 220 }} role="img" aria-label={ariaLabel}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -8 }}>
+            <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -8 }} style={clickable}
+              onClick={(e) => { if (onSelect && e?.activeLabel != null) onSelect(String(e.activeLabel)); }}>
               <CartesianGrid {...gridProps} />
               <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
               <YAxis {...axisProps} allowDecimals={false} width={44} domain={[0, 'auto']} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--primary)', fillOpacity: 0.06 }} />
               {widget.sourceModules.length > 1 && <Legend {...legendProps} />}
               {widget.sourceModules.map((m, i) => (
-                <Bar key={m.id} dataKey={m.id} name={m.name} fill={seriesColor(i)} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar key={m.id} dataKey={m.id} name={m.name} fill={seriesColor(i)} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                  {chartData.map((d) => <Cell key={String(d.label)} fillOpacity={dim(d.label)} />)}
+                </Bar>
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -123,9 +137,11 @@ export function WidgetCard({
         <div style={{ height: 240 }} role="img" aria-label={ariaLabel}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={slices} dataKey="value" nameKey="label" innerRadius="58%" outerRadius="85%" paddingAngle={1} isAnimationActive={false}>
+              <Pie data={slices} dataKey="value" nameKey="label" innerRadius="58%" outerRadius="85%" paddingAngle={1} isAnimationActive={false}
+                onClick={(_sector, index) => { const sl = slices[index]; if (onSelect && sl && !isMerged(index)) onSelect(sl.label); }}>
                 {slices.map((sl, i) => (
-                  <Cell key={sl.label} fill={sl.label === 'Other' ? mutedColor() : seriesColor(i, MAX_DONUT_SLICES)} stroke="var(--bg-card)" />
+                  <Cell key={sl.label} fill={sl.label === 'Other' ? mutedColor() : seriesColor(i, MAX_DONUT_SLICES)} stroke="var(--bg-card)"
+                    fillOpacity={dim(sl.label)} style={onSelect && !isMerged(i) ? clickable : undefined} />
                 ))}
               </Pie>
               <Tooltip content={<ChartTooltip />} />
@@ -138,14 +154,16 @@ export function WidgetCard({
       {chartData && chartData.length > 0 && widget.chartType === 'line' && (
         <div style={{ height: 220 }} role="img" aria-label={ariaLabel}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -8 }}>
+            <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -8 }} style={clickable}
+              onClick={(e) => { if (onSelect && e?.activeLabel != null) onSelect(String(e.activeLabel)); }}>
               <CartesianGrid {...gridProps} />
               <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
               <YAxis {...axisProps} allowDecimals={false} width={44} domain={[0, 'auto']} />
               <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--t-light)', strokeWidth: 1, strokeDasharray: '4 4' }} />
               {widget.sourceModules.length > 1 && <Legend {...legendProps} />}
               {widget.sourceModules.map((m, i) => (
-                <Line key={m.id} type="monotone" dataKey={m.id} name={m.name} stroke={seriesColor(i)} strokeWidth={i === 0 ? 2.5 : 1.75} dot={false} isAnimationActive={false} />
+                <Line key={m.id} type="monotone" dataKey={m.id} name={m.name} stroke={seriesColor(i)} strokeWidth={i === 0 ? 2.5 : 1.75} isAnimationActive={false}
+                  dot={selected != null ? (p: { cx?: number; cy?: number; payload?: { label?: string | null } }) => (p.payload?.label === selected ? <circle key={`${m.id}-${p.payload.label}`} cx={p.cx} cy={p.cy} r={5} fill={seriesColor(i)} /> : <g key={`${m.id}-${p.payload?.label}`} />) : false} />
               ))}
             </LineChart>
           </ResponsiveContainer>

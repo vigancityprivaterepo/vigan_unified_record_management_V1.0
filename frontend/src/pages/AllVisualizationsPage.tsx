@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { OfficeMark } from '@/components/OfficeMark';
 import { AsyncState } from '@/components/AsyncState';
+import { ChartExplorer } from '@/components/ChartExplorer';
 import { Icon } from '@/components/Icon';
 import { Modal } from '@/components/Modal';
 import { OfficePicker } from '@/components/OfficePicker';
@@ -82,6 +83,12 @@ export function VisualizationBoard({
   const [officeFilter, setOfficeFilter] = useState<string>(lockedOffice ?? initialOffice ?? 'all');
   const [dashboardOnly, setDashboardOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  // The bar, slice or point picked in the opened chart; null = the whole chart.
+  const [pickedLabel, setPickedLabel] = useState<string | null>(null);
+  const open = (id: string | null) => {
+    setOpenId(id);
+    setPickedLabel(null);
+  };
   const [editingWidget, setEditingWidget] = useState<DashboardWidget | null>(null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,7 +115,7 @@ export function VisualizationBoard({
     setError(null);
     try {
       await wapi.remove(w.id);
-      setOpenId(null);
+      open(null);
       reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete visualization');
@@ -221,7 +228,7 @@ export function VisualizationBoard({
         <div className="ws-viz-grid">
           {shown.map((w) => (
             <div key={w.id} className="ws-card ws-viz-card">
-              <button type="button" className="ws-viz-open" onClick={() => setOpenId(w.id)} aria-label={`Open ${w.title}`}>
+              <button type="button" className="ws-viz-open" onClick={() => open(w.id)} aria-label={`Open ${w.title}`}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 16 }}>
                     {w.title}
@@ -248,13 +255,13 @@ export function VisualizationBoard({
       )}
 
       {opened && (
-        <Modal title={opened.title} eyebrow={officesOf(opened).map(shortName).join(' · ')} wide onClose={() => setOpenId(null)}>
+        <Modal title={opened.title} eyebrow={officesOf(opened).map(shortName).join(' · ')} wide onClose={() => open(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ fontSize: 14, color: 'var(--t-muted)' }}>
               {describe(opened)}
               {opened.hasSampleData && <span className="ws-sample-tag">Sample data, not real records</span>}
             </div>
-            <WidgetCard widget={opened} loadData={wapi.data} />
+            <WidgetCard widget={opened} loadData={wapi.data} selected={pickedLabel} onSelect={(l) => setPickedLabel((cur) => (cur === l ? null : l))} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {toggleButton(opened)}
               <span style={{ flex: 1 }} />
@@ -265,7 +272,7 @@ export function VisualizationBoard({
                     className="btn btn--ghost ws-topbar-btn"
                     onClick={() => {
                       setEditingWidget(opened);
-                      setOpenId(null);
+                      open(null);
                     }}
                   >
                     Edit
@@ -276,6 +283,7 @@ export function VisualizationBoard({
                 </>
               )}
             </div>
+            <ChartExplorer key={opened.id} widget={opened} base={wapi.chartBase(opened.id)} label={pickedLabel} onClear={() => setPickedLabel(null)} />
           </div>
         </Modal>
       )}
