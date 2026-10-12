@@ -77,13 +77,21 @@ export async function reach(client: PrismaClient): Promise<Reach> {
         AND NOT EXISTS (SELECT 1 FROM office_record d JOIN office_module dm ON dm.id = d.module_id
                         WHERE d.person_key = c.person_key AND NOT d.is_archived AND dm.slug = 'death')
     ),
+    -- Programs per household in one pass over the records. Counting them
+    -- household by household re-read every member for each one, which took
+    -- minutes at city size.
+    served AS (
+      SELECT x.hh, COUNT(DISTINCT r.module_id) AS programs
+      FROM office_record r JOIN members x ON x.person_key = r.person_key
+      WHERE NOT r.is_archived
+      GROUP BY x.hh
+    ),
     hh AS (
-      SELECT m.hh,
-        (SELECT COUNT(DISTINCT r.module_id) FROM office_record r JOIN members x ON x.person_key = r.person_key
-          WHERE x.hh = m.hh AND NOT r.is_archived) AS programs,
+      SELECT m.hh, COALESCE(max(s.programs), 0) AS programs,
         bool_or(m.age >= 60 OR m.age < 5) AS vulnerable,
         (array_agg(m.person_brgy_code ORDER BY (m.person_key = m.hh) DESC))[1] AS brgy
-      FROM members m GROUP BY m.hh
+      FROM members m LEFT JOIN served s ON s.hh = m.hh
+      GROUP BY m.hh
     )`;
   const [buckets, none] = await Promise.all([
     client.$queryRaw<Array<{ bucket: string; n: number }>>(Prisma.sql`${base}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, type DashboardWidget, type WidgetSeriesRow } from '@/lib/api';
 import { capSlices, mutedColor, seriesColor, MAX_DONUT_SLICES } from '@/lib/chartTheme';
 import { officeColor } from '@/lib/officeTheme';
@@ -11,17 +11,32 @@ const MAX_BARS = 6;
 export function WidgetPreview({ widget, hue, loadData }: { widget: DashboardWidget; hue: number; loadData?: (id: string) => Promise<WidgetSeriesRow[]> }) {
   const [rows, setRows] = useState<WidgetSeriesRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The Visualizations grid can hold a hundred charts; each one asks for its
+  // numbers only when it is about to scroll into view, not all at once.
+  const holder = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(typeof IntersectionObserver === 'undefined');
 
   useEffect(() => {
+    const el = holder.current;
+    if (near || !el) return;
+    const watch = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setNear(true);
+    }, { rootMargin: '300px' });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [near]);
+
+  useEffect(() => {
+    if (!near) return;
     (loadData ?? api.getDashboardWidgetData)(widget.id)
       .then(setRows)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load data'));
     // loadData is a fresh closure each render; refetch only for a different widget.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widget.id]);
+  }, [widget.id, near]);
 
   if (error) return <div className="ws-viz-preview ws-viz-empty">{error}</div>;
-  if (!rows) return <div className="ws-viz-preview ws-viz-empty"><span className="spinner sm" /></div>;
+  if (!rows) return <div ref={holder} className="ws-viz-preview ws-viz-empty">{near && <span className="spinner sm" />}</div>;
   if (rows.length === 0) return <div className="ws-viz-preview ws-viz-empty">No records yet</div>;
 
   const points = rows.map((r) => ({ label: r.label ?? '(blank)', value: r.counts.reduce((a, c) => a + c, 0) }));

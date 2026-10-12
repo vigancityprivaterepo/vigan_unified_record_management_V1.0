@@ -20,6 +20,9 @@ import { applyDeath, DEATH_SLUG } from '../src/services/deathEffects';
 import { toGapRule, whereFor } from '../src/services/programGaps';
 
 const DEMO_ACTOR = '5a3d1e00-c17d-4d00-8000-000000000001';
+// DEMO_SCALE=17 builds a city of about 50,000 people instead of 3,000, for
+// checking speed at Vigan's real size. Never use it on the demo database.
+const SCALE = Math.max(1, Math.floor(Number(process.env.DEMO_SCALE ?? 1)) || 1);
 
 // --- Random helpers (seeded, so every run builds the same city) -------------
 
@@ -393,7 +396,7 @@ async function addDemo(): Promise<void> {
   // programs reach less, so "who gets no help" has a real answer.
   const programLimit = new Map<string, { max: number; slugs: Set<string> }>();
   for (const b of barangays) {
-    const households = b.kind === 'poblacion' ? int(22, 32) : b.kind === 'flood' ? int(18, 27) : int(13, 23);
+    const households = SCALE * (b.kind === 'poblacion' ? int(22, 32) : b.kind === 'flood' ? int(18, 27) : int(13, 23));
     for (let h = 0; h < households; h++) {
       const hh = randomUUID();
       const tier = weighted(['none', LESS_REACHED.has(b.name) ? 34 : 13], ['few', 30], ['any', LESS_REACHED.has(b.name) ? 36 : 57]);

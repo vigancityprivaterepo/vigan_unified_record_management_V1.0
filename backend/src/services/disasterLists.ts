@@ -68,9 +68,6 @@ const date = (expr: Prisma.Sql) => Prisma.sql`(CASE WHEN ${expr} ~ '^\\d{4}-\\d{
 // One CTE shared by the summary and the list, so both always agree.
 function flagged(filters: DisasterFilters): Prisma.Sql {
   const brgy = filters.barangayCode ? Prisma.sql`AND c.person_brgy_code = ${filters.barangayCode}` : Prisma.empty;
-  const inProgram = (slug: string) => Prisma.sql`EXISTS (
-    SELECT 1 FROM office_record r JOIN office_module m ON m.id = r.module_id
-    WHERE r.person_key = c.person_key AND NOT r.is_archived AND m.slug = ${slug})`;
   const edd = date(Prisma.sql`r.data->>'expected_delivery_date'`);
   const event = filters.event ? normalizeEvent(filters.event) : null;
   const reliefHouseholds = event
@@ -83,34 +80,41 @@ function flagged(filters: DisasterFilters): Prisma.Sql {
   const visit = date(Prisma.sql`r.data->>'visit_date'`);
   return Prisma.sql`
     WITH ${reliefHouseholds}
+    -- The five programs these lists read, gathered in one pass and folded to
+    -- one row per person. Asking "is this person in program X" once per
+    -- citizen instead took seconds and grew with the registry.
+    flags AS (
+      SELECT r.person_key,
+        bool_or(m.slug = 'pwd') AS pwd,
+        bool_or(m.slug = 'solo_parent') AS solo_parent,
+        bool_or(m.slug = 'death') AS dead,
+        bool_or(m.slug = 'prenatal' AND (${edd} >= current_date - 30
+                 OR (${edd} IS NULL AND COALESCE(${visit}, r.created_at::date) >= current_date - 280))) AS pregnant,
+        (array_agg(COALESCE(NULLIF(r.data->>'evacuation_center', ''), 'Evacuation center not recorded')
+           ORDER BY ${date(Prisma.sql`r.data->>'date_evacuated'`)} DESC NULLS LAST, r.created_at DESC)
+           FILTER (WHERE m.slug = 'evacuees' AND COALESCE(r.data->>'returned_home', 'false') <> 'true'))[1] AS evac_center
+      FROM office_record r JOIN office_module m ON m.id = r.module_id
+      WHERE NOT r.is_archived AND r.person_key IS NOT NULL AND m.slug IN ('pwd', 'solo_parent', 'prenatal', 'evacuees', 'death')
+      GROUP BY r.person_key
+    ),
     people AS (
       SELECT c.person_key, c.person_lname, c.person_fname, c.person_mname, c.person_sex, c.person_street,
         c.person_brgy_code, b.name AS barangay,
         CASE WHEN c.person_is_head THEN c.person_key ELSE COALESCE(c.person_parent_key, c.person_key) END AS hh,
         date_part('year', age(c.person_bdate))::int AS age,
-        ${inProgram('pwd')} AS pwd,
-        ${inProgram('solo_parent')} AS solo_parent,
-        EXISTS (
-          SELECT 1 FROM office_record r JOIN office_module m ON m.id = r.module_id
-          WHERE r.person_key = c.person_key AND NOT r.is_archived AND m.slug = 'prenatal'
-            AND (${edd} >= current_date - 30
-                 OR (${edd} IS NULL AND COALESCE(${visit}, r.created_at::date) >= current_date - 280))
-        ) AS pregnant,
-        (SELECT COALESCE(NULLIF(r.data->>'evacuation_center', ''), 'Evacuation center not recorded')
-           FROM office_record r JOIN office_module m ON m.id = r.module_id
-          WHERE r.person_key = c.person_key AND NOT r.is_archived AND m.slug = 'evacuees'
-            AND COALESCE(r.data->>'returned_home', 'false') <> 'true'
-          ORDER BY ${date(Prisma.sql`r.data->>'date_evacuated'`)} DESC NULLS LAST, r.created_at DESC
-          LIMIT 1) AS evac_center
+        COALESCE(f.pwd, false) AS pwd, COALESCE(f.solo_parent, false) AS solo_parent, COALESCE(f.pregnant, false) AS pregnant,
+        f.evac_center
       FROM "Citizen" c
       LEFT JOIN barangay b ON b.code = c.person_brgy_code
+      LEFT JOIN flags f ON f.person_key = c.person_key
       WHERE NOT c.is_archived ${brgy}
-        AND NOT ${inProgram('death')}
+        AND NOT COALESCE(f.dead, false)
     ),
     flagged AS (
       SELECT p.*, COALESCE(p.age >= 60, false) AS senior, COALESCE(p.age < 5, false) AS young_child,
-        CASE WHEN ${event !== null} THEN EXISTS (SELECT 1 FROM relief_hh x WHERE x.hh = p.hh) END AS relief
+        CASE WHEN ${event !== null} THEN x.hh IS NOT NULL END AS relief
       FROM people p
+      LEFT JOIN relief_hh x ON x.hh = p.hh
     ),
     vulnerable AS (
       SELECT * FROM flagged WHERE senior OR young_child OR pwd OR pregnant OR solo_parent

@@ -82,6 +82,9 @@ model Citizen {
 
   // Drives resolvePerson()'s exact-match step (Phase 2).
   @@index([personLname, personFname, personBdate])
+  // Household members, and barangay filters (20261012100000_speed_indexes).
+  @@index([personParentKey])
+  @@index([personBrgyCode])
   @@map("Citizen")
 }
 
@@ -227,6 +230,9 @@ model OfficeRecord {
   module  OfficeModule @relation(fields: [moduleId], references: [id])
   citizen Citizen?     @relation(fields: [personKey], references: [personKey])
 
+  // Two more, partial (WHERE NOT is_archived), exist only in SQL since Prisma
+  // can't express them: (person_key, module_id) and (module_id, created_at
+  // DESC). See 20261012100000_speed_indexes.
   @@index([moduleId])
   @@index([personKey])
   @@map("office_record")
