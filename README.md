@@ -79,6 +79,21 @@ curl -X POST http://localhost:4000/auth/login -H 'Content-Type: application/json
 
 Other demo usernames: `agri.demo`, `civilreg.demo`, `admin.demo`.
 
+### City demo data (for presentations)
+
+[backend/scripts/seedCityDemo.ts](backend/scripts/seedCityDemo.ts) adds a sample city on top of whatever is
+already in the database: about 3,000 sample citizens in households across all 39 barangays, sample
+records for every office's programs, four more offices (POSO, Economic Enterprise, Public Assistance,
+Youth Development), new programs for existing offices, charts and program gap rules. Every record is
+tagged as sample data, and the script never edits or deletes rows it did not add.
+
+```bash
+cd backend
+npm run db:city-demo              # add it (does nothing if it is already there)
+npm run db:city-demo -- --reset   # rebuild it
+npm run db:city-demo -- --remove  # take all of it out again
+```
+
 ## Dev without Docker
 
 ```bash

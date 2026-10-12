@@ -95,6 +95,10 @@ const MODULE_ICON_BY_SLUG: Record<string, string> = {
   building_permits: 'hammer', occupancy_permits: 'building', rpt_payments: 'coins', business_tax_payments: 'coins',
   animal_registration: 'paw', animal_bites: 'alert', environmental_violations: 'leaf', tree_planting: 'sprout2',
   scholars: 'grad', livelihood_beneficiaries: 'sprout2',
+  day_care: 'family', nutrition: 'heart', disease_cases: 'alert', fisherfolk: 'users', farm_assistance: 'sprout',
+  marriage: 'heart', relief_distribution: 'shield', waste_collection: 'leaf',
+  traffic_violations: 'ticket', tricycle_franchise: 'clipboard', market_stalls: 'store', market_collections: 'coins',
+  citizen_requests: 'message', youth_profile: 'users',
 };
 
 export function officeAppearance(office: Pick<Office, 'slug'> & { accentHue?: number | null; icon?: string | null } | null | undefined) {

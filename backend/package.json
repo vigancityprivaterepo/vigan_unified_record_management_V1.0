@@ -20,7 +20,8 @@
     "prisma:seed": "prisma db seed",
     "db:provision-roles": "tsx scripts/provisionDbRoles.ts",
     "db:rotate-encryption-key": "tsx scripts/rotateEncryptionKey.ts",
-    "db:manage-staff": "tsx scripts/manageStaffAccount.ts"
+    "db:manage-staff": "tsx scripts/manageStaffAccount.ts",
+    "db:city-demo": "tsx --env-file=.env scripts/seedCityDemo.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.15.0",
