@@ -78,6 +78,7 @@ model Citizen {
   subChildren Citizen[] @relation("HouseholdSubParent")
 
   officeRecords OfficeRecord[]
+  outreach      OutreachContact[]
 
   // Drives resolvePerson()'s exact-match step (Phase 2).
   @@index([personLname, personFname, personBdate])
@@ -442,8 +443,33 @@ model ProgramGapRule {
   updatedBy       String?  @map("updated_by") @db.Uuid
 
   targetModule OfficeModule @relation(fields: [targetModuleId], references: [id])
+  outreach     OutreachContact[]
 
   @@map("program_gap_rule")
+}
+
+// Outreach on a "not yet served" rule: whether a person on the list has been
+// contacted and what came of it ('reached' = will come in, 'declined',
+// 'not_found', 'moved'). One row per rule and person; history is in the
+// audit log. Read and written with raw SQL in services/programGaps.ts.
+model OutreachContact {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ruleId      String   @map("rule_id") @db.Uuid
+  personKey   String   @map("person_key") @db.Uuid
+  status      String
+  note        String?
+  contactedOn DateTime @default(dbgenerated("CURRENT_DATE")) @map("contacted_on") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  rule    ProgramGapRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  citizen Citizen        @relation(fields: [personKey], references: [personKey], onDelete: Cascade)
+
+  @@unique([ruleId, personKey])
+  @@index([personKey])
+  @@map("outreach_contact")
 }
 
 // --- Data subject requests (RA 10173) -------------------------------------------

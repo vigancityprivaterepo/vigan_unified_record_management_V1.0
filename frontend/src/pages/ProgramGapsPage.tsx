@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Checkbox } from '@/components/Checkbox';
 import { Icon } from '@/components/Icon';
 import { LoadError } from '@/components/LoadError';
 import { Modal } from '@/components/Modal';
 import { OfficeMark } from '@/components/OfficeMark';
 import { Pagination } from '@/components/Pagination';
-import { api, ApiError, type GapPerson, type GapRuleInput, type GapRuleSummary, type Paginated } from '@/lib/api';
+import { api, ApiError, type GapPerson, type GapRuleInput, type GapRuleSummary, type OutreachFilter, type OutreachStatus, type Paginated } from '@/lib/api';
 
 type Program = { id: string; name: string; officeName: string };
 
@@ -62,7 +63,7 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
         <>
           <GapSection
             title="Not yet served"
-            sub="Citizens who match a program's conditions but have no record in it. Share the list with the office so they can reach out."
+            sub="Citizens who match a program's conditions but have no record in it. Open a list to print it for a barangay and mark who has been contacted."
             rules={missing}
             empty={officeId ? 'No rules of this kind for your programs.' : 'No active rules of this kind. Add one under Manage rules.'}
             onOpen={setOpenRule}
@@ -77,7 +78,7 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
         </>
       )}
 
-      {openRule && <GapPeopleModal officeId={officeId} rule={openRule} barangayCode={barangayCode} barangayName={barangayName} onClose={() => setOpenRule(null)} />}
+      {openRule && <GapPeopleModal officeId={officeId} rule={openRule} barangayCode={barangayCode} barangayName={barangayName} onClose={() => { setOpenRule(null); reload(); }} />}
       {managing && data && <ManageRulesModal rules={data.rules} programs={data.programs} onChanged={reload} onClose={() => setManaging(false)} />}
     </div>
   );
@@ -109,6 +110,7 @@ function GapSection({ title, sub, rules, empty, onOpen }: {
             <span className="ws-gap-count">
               <strong>{r.total == null ? 'N/A' : r.total === 0 ? 'None' : r.total.toLocaleString()}</strong>
               {!!r.total && <span>{r.total === 1 ? 'person' : 'people'}</span>}
+              {!!r.total && r.outreach && <span>{contacted(r.outreach).toLocaleString()} contacted</span>}
             </span>
             {r.total ? <Icon name="chevR" size={16} /> : <span />}
           </button>
@@ -117,6 +119,14 @@ function GapSection({ title, sub, rules, empty, onOpen }: {
     </section>
   );
 }
+
+const OUTREACH: Array<[OutreachStatus, string]> = [
+  ['reached', 'Reached, will come in'],
+  ['declined', 'Reached, does not want it'],
+  ['not_found', 'Could not be found'],
+  ['moved', 'No longer lives here'],
+];
+const contacted = (o: Record<OutreachStatus, number>) => o.reached + o.declined + o.not_found + o.moved;
 
 function describeRule(r: Pick<GapRuleSummary, 'kind' | 'minAge' | 'maxAge' | 'sex' | 'sourcePrograms' | 'targetProgram'>): string {
   const who: string[] = [];
@@ -138,21 +148,41 @@ function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }:
   const [attempt, setAttempt] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  // Outreach is for people still waiting to be served, not for cleanup lists.
+  const tracks = rule.kind === 'missing';
+  const [show, setShow] = useState<OutreachFilter | ''>('');
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     setError(null);
-    api.programGapPeople(officeId, rule.id, page, barangayCode || undefined).then(setResult).catch((err) => { setResult(null); setError(err); });
-  }, [officeId, rule.id, page, barangayCode, attempt]);
+    api.programGapPeople(officeId, rule.id, page, barangayCode || undefined, show || undefined).then(setResult).catch((err) => { setResult(null); setError(err); });
+  }, [officeId, rule.id, page, barangayCode, show, attempt]);
 
   async function handleExport() {
     setExporting(true);
     setExportError(null);
     try {
-      await api.exportProgramGap(officeId, rule.id, barangayCode || undefined);
+      await api.exportProgramGap(officeId, rule.id, barangayCode || undefined, show || undefined);
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Export failed');
     } finally {
       setExporting(false);
+    }
+  }
+
+  // Saves right away; the row keeps its place so staff can go down the list.
+  async function mark(p: GapPerson, status: OutreachStatus | null, note: string | null) {
+    setSavingKey(p.personKey);
+    setExportError(null);
+    try {
+      await api.setGapOutreach(officeId, rule.id, p.personKey, status, note);
+      const today = new Date().toISOString().slice(0, 10);
+      setResult((r) => r && { ...r, items: r.items.map((x) => (x.personKey === p.personKey ? { ...x, outreach: status ? { status, note, on: today } : null } : x)) });
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'Could not save the result');
+    } finally {
+      setSavingKey(null);
     }
   }
 
@@ -167,7 +197,16 @@ function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }:
         {rule.usesSampleData && <p className="ws-note">These programs contain sample data, so this list is not real yet.</p>}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <strong>{result ? `${result.total.toLocaleString()} ${result.total === 1 ? 'person' : 'people'}` : ''}</strong>
+          {tracks && (
+            <select className="select" style={{ width: 'auto' }} aria-label="Show by outreach result" value={show} onChange={(e) => { setShow(e.target.value as OutreachFilter | ''); setPage(1); }}>
+              <option value="">Everyone on the list</option>
+              <option value="todo">Not yet contacted</option>
+              <option value="done">Contacted</option>
+              {OUTREACH.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+            </select>
+          )}
           <span style={{ flex: 1 }} />
+          <button type="button" className="btn btn--ghost" onClick={() => setPrinting(true)} disabled={!result?.total}>Print list</button>
           <button type="button" className="btn btn--ghost" onClick={handleExport} disabled={exporting || !result?.total}>
             <Icon name="download" size={16} /> {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
@@ -179,7 +218,7 @@ function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }:
           <div className="table-scroll">
             <table className="table">
               <thead>
-                <tr><th>Name</th><th>Age</th><th>Sex</th><th>Barangay</th>{rule.sourcePrograms.length > 0 && <th>Found in</th>}</tr>
+                <tr><th>Name</th><th>Age</th><th>Sex</th><th>Barangay</th>{rule.sourcePrograms.length > 0 && <th>Found in</th>}{tracks && <th>Outreach</th>}</tr>
               </thead>
               <tbody>
                 {result.items.map((p) => (
@@ -189,6 +228,20 @@ function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }:
                     <td>{p.sex ?? 'Not on file'}</td>
                     <td>{p.barangay ?? 'No barangay'}</td>
                     {rule.sourcePrograms.length > 0 && <td>{p.sourcePrograms.join(', ')}</td>}
+                    {tracks && (
+                      <td style={{ minWidth: 230 }}>
+                        <select className="select" aria-label={`Outreach result for ${p.name}`} value={p.outreach?.status ?? ''} disabled={savingKey === p.personKey}
+                          onChange={(e) => mark(p, (e.target.value || null) as OutreachStatus | null, p.outreach?.note ?? null)}>
+                          <option value="">Not yet contacted</option>
+                          {OUTREACH.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+                        </select>
+                        {p.outreach && (
+                          <input className="input" style={{ marginTop: 6 }} aria-label={`Note for ${p.name}`} placeholder={`Note (marked ${p.outreach.on})`} maxLength={300}
+                            defaultValue={p.outreach.note ?? ''} key={`${p.personKey}-${p.outreach.status}`}
+                            onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== (p.outreach?.note ?? null)) void mark(p, p.outreach!.status, v); }} />
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -197,10 +250,74 @@ function GapPeopleModal({ officeId, rule, barangayCode, barangayName, onClose }:
         )}
         {result && <Pagination page={result.page} pageSize={result.pageSize} total={result.total} onPageChange={setPage} />}
         <p style={{ margin: 0, fontSize: 13, color: 'var(--t-muted)' }}>
-          Opening and exporting this list is recorded in the audit log. Use it only to reach these people for this program.
+          Opening, printing and exporting this list is recorded in the audit log. Use it only to reach these people for this program.
+          {tracks && ' A person leaves the list on their own once they are registered in the program.'}
         </p>
       </div>
+      {printing && <CallSheet officeId={officeId} rule={rule} barangayCode={barangayCode} barangayName={barangayName} show={show} onDone={() => setPrinting(false)} />}
     </Modal>
+  );
+}
+
+// Printed call list: rendered outside the app root and shown only by
+// @media print (workspace.css, shared with the disaster lists), then removed.
+function CallSheet({ officeId, rule, barangayCode, barangayName, show, onDone }: {
+  officeId?: string; rule: GapRuleSummary; barangayCode: string; barangayName?: string; show: OutreachFilter | ''; onDone: () => void;
+}) {
+  const [rows, setRows] = useState<{ items: GapPerson[]; truncated: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const done = useRef(onDone);
+  done.current = onDone;
+
+  useEffect(() => {
+    api.printProgramGap(officeId, rule.id, barangayCode || undefined, show || undefined).then(setRows).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the list to print'));
+  }, [officeId, rule.id, barangayCode, show]);
+
+  useEffect(() => {
+    if (!rows) return;
+    const after = () => done.current();
+    window.addEventListener('afterprint', after);
+    const t = window.setTimeout(() => window.print(), 50);
+    return () => { window.clearTimeout(t); window.removeEventListener('afterprint', after); };
+  }, [rows]);
+
+  if (error) {
+    return (
+      <Modal title="Could not print" onClose={onDone}>
+        <div className="alert danger"><div className="body">{error}</div></div>
+      </Modal>
+    );
+  }
+  if (!rows) return null;
+
+  const tracks = rule.kind === 'missing';
+  const printed = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' });
+  return createPortal(
+    <div className="dl-print">
+      <div className="dl-print-head">
+        <div>City Government of Vigan{rule.targetProgram ? ` · ${rule.targetProgram.office.name}` : ''}</div>
+        <h1>{rule.name}</h1>
+        <div><strong>{barangayName ?? 'All barangays'}</strong> · {rows.items.length} {rows.items.length === 1 ? 'person' : 'people'} · printed {printed}</div>
+        <div className="dl-print-warn">Confidential: personal information (RA 10173). For reaching these people for this program only. Do not post or share.</div>
+        {rows.truncated && <div className="dl-print-warn">Only the first {rows.items.length} people are printed. Export the CSV for the full list.</div>}
+      </div>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Age</th><th>Sex</th><th>Street</th>{!barangayName && <th>Barangay</th>}{tracks && <th>Result so far</th>}<th>Result of this visit</th><th>Signature</th></tr>
+        </thead>
+        <tbody>
+          {rows.items.map((p, i) => (
+            <tr key={p.personKey}>
+              <td>{i + 1}</td><td>{p.name}</td><td>{p.age ?? ''}</td><td>{p.sex ?? ''}</td><td>{p.street ?? ''}</td>
+              {!barangayName && <td>{p.barangay ?? ''}</td>}
+              {tracks && <td>{p.outreach ? OUTREACH.find(([key]) => key === p.outreach!.status)?.[1] : ''}</td>}
+              <td style={{ width: '90pt' }} /><td style={{ width: '70pt' }} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>,
+    document.body,
   );
 }
 

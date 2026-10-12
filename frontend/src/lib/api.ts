@@ -480,10 +480,6 @@ export type DashboardWidget = {
 // `widget.sourceModules[i]`.
 export type WidgetSeriesRow = { label: string | null; counts: number[] };
 
-// Every module submission is multipart/form-data, even when it has no FILE
-// fields -- one request shape for every module (see backend/src/routes/
-// office.ts). Core fields go as individual text parts, admin-defined
-// non-file fields as one JSON-encoded `fields` part, and FILE fields as
 // What is behind a chart (backend/src/services/widgetExplore.ts).
 export type ChartColumn = { key: string; label: string; type: string };
 export type ChartRecord = {
@@ -505,6 +501,10 @@ export type ChartModuleProfile = {
   aboutPeople: boolean; first: string | null; last: string | null; fields: ChartFieldProfile[];
 };
 
+// Every module submission is multipart/form-data, even when it has no FILE
+// fields -- one request shape for every module (see backend/src/routes/
+// office.ts). Core fields go as individual text parts, admin-defined
+// non-file fields as one JSON-encoded `fields` part, and FILE fields as
 // actual file parts named by their field key.
 function officeRecordFormData(
   // Undefined for a collectPersonInfo=false module -- it isn't about a
@@ -559,8 +559,17 @@ export type GapRuleSummary = GapRuleInput & {
   total: number | null;
   byBarangay: Array<{ code: string | null; name: string | null; count: number }>;
   usesSampleData: boolean;
+  // "Not yet served" rules only: people on the list today, by outreach result.
+  outreach: Record<OutreachStatus, number> | null;
 };
-export type GapPerson = { personKey: string; name: string; age: number | null; sex: string | null; barangay: string | null; sourcePrograms: string[] };
+// What came of contacting someone on a "not yet served" list.
+export type OutreachStatus = 'reached' | 'declined' | 'not_found' | 'moved';
+// 'todo' = not contacted yet, 'done' = any result.
+export type OutreachFilter = 'todo' | 'done' | OutreachStatus;
+export type GapPerson = {
+  personKey: string; name: string; age: number | null; sex: string | null; barangay: string | null; sourcePrograms: string[];
+  street: string | null; outreach: { status: OutreachStatus; note: string | null; on: string } | null;
+};
 
 // Disaster lists (admin): see backend/src/services/disasterLists.ts.
 export type DisasterCategory = 'senior' | 'young_child' | 'pwd' | 'pregnant' | 'solo_parent';
@@ -763,10 +772,14 @@ export const api = {
     download(`${listBase(officeId)}/disaster-lists/people.csv${queryString({ barangayCode, category, ...rf })}`, 'disaster-list.csv'),
   programGaps: (officeId: string | undefined, barangayCode?: string) =>
     request<{ rules: GapRuleSummary[]; programs: Array<{ id: string; name: string; officeName: string }> }>(`${listBase(officeId)}/program-gaps${queryString({ barangayCode })}`),
-  programGapPeople: (officeId: string | undefined, ruleId: string, page: number, barangayCode?: string) =>
-    request<Paginated<GapPerson>>(`${listBase(officeId)}/program-gaps/${ruleId}/people${queryString({ page, barangayCode })}`),
-  exportProgramGap: (officeId: string | undefined, ruleId: string, barangayCode?: string) =>
-    download(`${listBase(officeId)}/program-gaps/${ruleId}/people.csv${queryString({ barangayCode })}`, 'program-gap.csv'),
+  programGapPeople: (officeId: string | undefined, ruleId: string, page: number, barangayCode?: string, outreach?: OutreachFilter) =>
+    request<Paginated<GapPerson>>(`${listBase(officeId)}/program-gaps/${ruleId}/people${queryString({ page, barangayCode, outreach })}`),
+  exportProgramGap: (officeId: string | undefined, ruleId: string, barangayCode?: string, outreach?: OutreachFilter) =>
+    download(`${listBase(officeId)}/program-gaps/${ruleId}/people.csv${queryString({ barangayCode, outreach })}`, 'program-gap.csv'),
+  printProgramGap: (officeId: string | undefined, ruleId: string, barangayCode?: string, outreach?: OutreachFilter) =>
+    request<{ items: GapPerson[]; truncated: boolean }>(`${listBase(officeId)}/program-gaps/${ruleId}/print${queryString({ barangayCode, outreach })}`),
+  setGapOutreach: (officeId: string | undefined, ruleId: string, personKey: string, status: OutreachStatus | null, note?: string | null) =>
+    request<{ status: OutreachStatus | null; note: string | null }>(`${listBase(officeId)}/program-gaps/${ruleId}/people/${personKey}/outreach`, { method: 'PUT', body: JSON.stringify({ status, note: note ?? null }) }),
   createProgramGapRule: (input: GapRuleInput) => request<GapRuleInput & { id: string }>('/admin/program-gaps', { method: 'POST', body: JSON.stringify(input) }),
   updateProgramGapRule: (id: string, input: Partial<GapRuleInput>) =>
     request<GapRuleInput & { id: string }>(`/admin/program-gaps/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
@@ -860,6 +873,13 @@ export const api = {
   setWidgetOnDashboard: (id: string, showOnDashboard: boolean) =>
     request<DashboardWidget>(`/admin/dashboard/widgets/${id}/dashboard`, { method: 'PATCH', body: JSON.stringify({ showOnDashboard }) }),
   getDashboardWidgetData: (id: string) => request<WidgetSeriesRow[]>(`/admin/dashboard/widgets/${id}/data`),
+  // `base` is the chart's own route: admin's, or one office's (lib/widgetApi.ts).
+  chartRecords: (base: string, f: { moduleId?: string; label?: string; page?: number }) =>
+    request<ChartRecords>(`${base}/explore/records${queryString(f)}`),
+  exportChartRecords: (base: string, f: { moduleId?: string; label?: string }) =>
+    download(`${base}/explore/records.csv${queryString(f)}`, 'chart-records.csv'),
+  chartHistory: (base: string, label?: string) => request<ChartHistory>(`${base}/explore/history${queryString({ label })}`),
+  chartProfile: (base: string) => request<ChartModuleProfile[]>(`${base}/explore/profile`),
   // One office's own charts (office staff; admin may use them too).
   listOfficeWidgets: (officeId: string) => request<DashboardWidget[]>(`/offices/${officeId}/widgets`),
   createOfficeWidget: (officeId: string, data: DashboardWidgetPayload) =>
@@ -877,13 +897,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ winningPersonKey }),
     }),
-  // `base` is the chart's own route: admin's, or one office's (lib/widgetApi.ts).
-  chartRecords: (base: string, f: { moduleId?: string; label?: string; page?: number }) =>
-    request<ChartRecords>(`${base}/explore/records${queryString(f)}`),
-  exportChartRecords: (base: string, f: { moduleId?: string; label?: string }) =>
-    download(`${base}/explore/records.csv${queryString(f)}`, 'chart-records.csv'),
-  chartHistory: (base: string, label?: string) => request<ChartHistory>(`${base}/explore/history${queryString({ label })}`),
-  chartProfile: (base: string) => request<ChartModuleProfile[]>(`${base}/explore/profile`),
   rejectReview: (id: string) =>
     request<{ status: 'rejected'; personKey: string }>(`/admin/duplicate-review-queue/${id}/reject`, {
       method: 'POST',

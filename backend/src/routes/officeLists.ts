@@ -3,7 +3,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireOfficeAccess } from '../middleware/auth';
 import {
-  disasterCsv, disasterPeople, disasterPrint, disasterSummary, EVACUEES_SLUG, gapCsv, gapPeople, gapSummary, officeRunsModule,
+  disasterCsv, disasterPeople, disasterPrint, disasterSummary, EVACUEES_SLUG, gapCsv, gapOutreach, gapPeople, gapPrint, gapSummary, officeRunsModule,
   renewalsCsv, renewalsList, renewalsSummary, requireDisasterAccess, requireRenewalsAccess,
 } from './listHandlers';
 import { BUSINESS_PERMITS_SLUG } from '../services/businessRenewals';
@@ -39,6 +39,8 @@ officeListsRouter.get(
 officeListsRouter.get('/:officeId/program-gaps', requireOfficeAccess, gapSummary);
 officeListsRouter.get('/:officeId/program-gaps/:ruleId/people', requireOfficeAccess, gapPeople);
 officeListsRouter.get('/:officeId/program-gaps/:ruleId/people.csv', requireOfficeAccess, gapCsv);
+officeListsRouter.get('/:officeId/program-gaps/:ruleId/print', requireOfficeAccess, gapPrint);
+officeListsRouter.put('/:officeId/program-gaps/:ruleId/people/:personKey/outreach', requireOfficeAccess, gapOutreach);
 
 officeListsRouter.get('/:officeId/disaster-lists', requireOfficeAccess, requireDisasterAccess, disasterSummary);
 officeListsRouter.get('/:officeId/disaster-lists/people', requireOfficeAccess, requireDisasterAccess, disasterPeople);

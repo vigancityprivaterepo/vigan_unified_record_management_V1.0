@@ -6,7 +6,7 @@ import { sendError } from '../lib/errors';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
 import { toGapRule, type GapRule } from '../services/programGaps';
-import { gapCsv, gapPeople, gapSummary } from './listHandlers';
+import { gapCsv, gapOutreach, gapPeople, gapPrint, gapSummary } from './listHandlers';
 
 // Program gaps (see services/programGaps.ts), admin side: every rule, plus
 // creating and editing rules. The read endpoints are shared with offices
@@ -23,6 +23,8 @@ async function loadRule(id: string | undefined): Promise<GapRule | null> {
 adminProgramGapsRouter.get('/', gapSummary);
 adminProgramGapsRouter.get('/:ruleId/people', gapPeople);
 adminProgramGapsRouter.get('/:ruleId/people.csv', gapCsv);
+adminProgramGapsRouter.get('/:ruleId/print', gapPrint);
+adminProgramGapsRouter.put('/:ruleId/people/:personKey/outreach', gapOutreach);
 
 const ruleSchema = z
   .object({

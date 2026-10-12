@@ -12,7 +12,10 @@ import {
   type Category, type DisasterFilters, type VulnerablePerson,
 } from '../services/disasterLists';
 import { BUSINESS_PERMITS_SLUG, listRenewals, summarizeRenewals, type RenewalBusiness, type RenewalFilters } from '../services/businessRenewals';
-import { countGap, listGapPeople, toGapRule, usesSampleData as gapUsesSample, type GapPerson, type GapRule } from '../services/programGaps';
+import {
+  countGap, listGapPeople, OUTREACH_LABEL, OUTREACH_STATUSES, outreachCounts, setOutreach, toGapRule, usesSampleData as gapUsesSample,
+  type GapFilters, type GapPerson, type GapRule,
+} from '../services/programGaps';
 
 // Program gaps and disaster lists, shared by the admin routes (whole city)
 // and the office routes (one office: the gap rules that target its own
@@ -31,6 +34,11 @@ async function audit(req: Request, tableName: string, recordId: string | null, c
 }
 
 const barangayOf = (req: Request) => (typeof req.query.barangayCode === 'string' && req.query.barangayCode ? req.query.barangayCode : undefined);
+function gapFilters(req: Request): GapFilters {
+  const o = req.query.outreach;
+  const outreach = o === 'todo' || o === 'done' || (OUTREACH_STATUSES as readonly unknown[]).includes(o) ? (o as GapFilters['outreach']) : undefined;
+  return { barangayCode: barangayOf(req), outreach };
+}
 
 // ---------------------------------------------------------------- gaps
 
@@ -66,6 +74,8 @@ export const gapSummary: RequestHandler = asyncHandler(async (req, res) => {
     rows.map(async (row) => {
       const rule = toGapRule(row);
       const [count, sample] = rule.isActive ? await Promise.all([countGap(client, rule, filters), gapUsesSample(client, rule)]) : [null, false];
+      // Outreach only makes sense for people still waiting to be served.
+      const outreach = rule.isActive && rule.kind === 'missing' ? await outreachCounts(client, rule, filters) : null;
       const target = moduleById.get(rule.targetModuleId);
       return {
         ...rule,
@@ -74,6 +84,7 @@ export const gapSummary: RequestHandler = asyncHandler(async (req, res) => {
         total: count?.total ?? null,
         byBarangay: count?.byBarangay.slice(0, 5) ?? [],
         usesSampleData: sample,
+        outreach,
       };
     }),
   );
@@ -86,13 +97,13 @@ export const gapPeople: RequestHandler = asyncHandler(async (req, res) => {
   const rule = await loadVisibleRule(req);
   if (!rule) { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
   const client = clientFor(req);
-  const filters = { barangayCode: barangayOf(req) };
+  const filters = gapFilters(req);
   const page = parsePage(req.query.page);
   const [{ total }, items] = await Promise.all([
     countGap(client, rule, filters),
     listGapPeople(client, rule, filters, { limit: GAP_PAGE_SIZE, offset: (page - 1) * GAP_PAGE_SIZE }),
   ]);
-  await audit(req, 'program_gap_rule', rule.id, { view: 'people', page, barangayCode: filters.barangayCode ?? null, rows: items.length, personKeys: items.map((p) => p.personKey) });
+  await audit(req, 'program_gap_rule', rule.id, { view: 'people', page, barangayCode: filters.barangayCode ?? null, outreach: filters.outreach ?? null, rows: items.length, personKeys: items.map((p) => p.personKey) });
   const body: Paginated<GapPerson> = { items, total, page, pageSize: GAP_PAGE_SIZE };
   res.json(body);
 });
@@ -100,15 +111,54 @@ export const gapPeople: RequestHandler = asyncHandler(async (req, res) => {
 export const gapCsv: RequestHandler = asyncHandler(async (req, res) => {
   const rule = await loadVisibleRule(req);
   if (!rule) { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
-  const filters = { barangayCode: barangayOf(req) };
+  const filters = gapFilters(req);
   const people = await listGapPeople(clientFor(req), rule, filters, null);
-  await audit(req, 'program_gap_rule', rule.id, { view: 'export', barangayCode: filters.barangayCode ?? null, rows: people.length });
+  await audit(req, 'program_gap_rule', rule.id, { view: 'export', barangayCode: filters.barangayCode ?? null, outreach: filters.outreach ?? null, rows: people.length });
   sendCsv(
     res,
     `program-gap-${rule.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Name', 'Age', 'Sex', 'Barangay', 'In program(s)', 'Rule'],
-    people.map((p) => [p.name, p.age, p.sex, p.barangay, p.sourcePrograms.join('; '), rule.name]),
+    ['Name', 'Age', 'Sex', 'Street', 'Barangay', 'In program(s)', 'Rule', 'Outreach', 'Outreach date', 'Outreach note'],
+    people.map((p) => [p.name, p.age, p.sex, p.street, p.barangay, p.sourcePrograms.join('; '), rule.name, p.outreach ? OUTREACH_LABEL[p.outreach.status] : '', p.outreach?.on, p.outreach?.note]),
   );
+});
+
+// The call list for one barangay (or the whole rule), to print and bring along.
+const GAP_PRINT_LIMIT = 2000;
+export const gapPrint: RequestHandler = asyncHandler(async (req, res) => {
+  const rule = await loadVisibleRule(req);
+  if (!rule) { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
+  const filters = gapFilters(req);
+  const people = await listGapPeople(clientFor(req), rule, filters, { limit: GAP_PRINT_LIMIT + 1, offset: 0 });
+  const items = people.slice(0, GAP_PRINT_LIMIT);
+  await audit(req, 'program_gap_rule', rule.id, { view: 'print', barangayCode: filters.barangayCode ?? null, outreach: filters.outreach ?? null, rows: items.length });
+  res.json({ items, truncated: people.length > GAP_PRINT_LIMIT });
+});
+
+const outreachSchema = z.object({
+  status: z.enum(OUTREACH_STATUSES).nullable(),
+  note: z.string().trim().max(300).nullable().optional(),
+});
+
+// Marks what came of contacting one person on a "not yet served" list.
+export const gapOutreach: RequestHandler = asyncHandler(async (req, res) => {
+  const rule = await loadVisibleRule(req);
+  if (!rule || rule.kind !== 'missing') { sendError(res, 404, 'NOT_FOUND', 'No such program gap rule'); return; }
+  const personKey = req.params.personKey;
+  const parsed = outreachSchema.safeParse(req.body);
+  if (!personKey || !z.string().uuid().safeParse(personKey).success || !parsed.success) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'Choose a result', parsed.success ? undefined : parsed.error.flatten());
+    return;
+  }
+  const note = parsed.data.note || null;
+  if (!(await setOutreach(clientFor(req), rule, personKey, parsed.data.status, note, req.session.userId!))) {
+    sendError(res, 404, 'NOT_FOUND', 'This person is no longer on the list');
+    return;
+  }
+  await insertAuditLog(clientFor(req), {
+    tableName: 'outreach_contact', recordId: personKey, action: parsed.data.status ? 'update' : 'delete', actorUserId: req.session.userId, actorRole: req.session.role,
+    changedFields: { ruleId: rule.id, status: parsed.data.status, note, officeId: officeOf(req) ?? null, personKeys: [personKey] },
+  });
+  res.json({ status: parsed.data.status, note });
 });
 
 // ---------------------------------------------------------------- disaster lists
