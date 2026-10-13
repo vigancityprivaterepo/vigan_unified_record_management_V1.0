@@ -79,19 +79,37 @@ curl -X POST http://localhost:4000/auth/login -H 'Content-Type: application/json
 
 Other demo usernames: `agri.demo`, `civilreg.demo`, `admin.demo`.
 
+### Connection to the AICS system
+
+CSWD's AICS system keeps its own cases. This system pulls the assistance AICS has
+released (read-only) so the Assistance page counts it and nobody encodes a case twice.
+The contract is [integrations/aics/openapi.yaml](integrations/aics/openapi.yaml); AICS serves it,
+with Swagger UI, at `/api/integration/v1/docs`.
+
+1. In AICS, create a key: `node scripts/createIntegrationKey.mjs vucrms`, put the printed
+   `INTEGRATION_API_KEYS=...` line in its environment file and restart its backend.
+2. Here, set `AICS_BRIDGE_URL` (for example `http://aics-server:5101/api/integration/v1`) and
+   `AICS_BRIDGE_KEY` (the key printed in step 1), then restart the backend.
+3. As administrator, open Assistance: "Connected to AICS" shows what the last pull brought. The server pulls on its own every `AICS_BRIDGE_INTERVAL_MINUTES` (15 by default).
+
+A program with the code `aics` must exist (under CSWD) and be ticked "Counts as assistance".
+Each release becomes one record there, matched to the citizen by name and birthdate; a name
+that is only close goes to Duplicate review, and an AICS client with no date of birth is skipped.
+
 ### City demo data (for presentations)
 
 [backend/scripts/seedCityDemo.ts](backend/scripts/seedCityDemo.ts) adds a sample city on top of whatever is
 already in the database: about 3,000 sample citizens in households across all 39 barangays, sample
 records for every office's programs, four more offices (POSO, Economic Enterprise, Public Assistance,
 Youth Development), new programs for existing offices, charts and program gap rules. Every record is
-tagged as sample data, and the script never edits or deletes rows it did not add.
+tagged as sample data, and the script never edits or deletes rows it did not add (one exception: it switches on "Counts as assistance" for the programs that give help to people, so the Assistance page has data).
 
 ```bash
 cd backend
 npm run db:city-demo              # add it (does nothing if it is already there)
 npm run db:city-demo -- --reset   # rebuild it
 npm run db:city-demo -- --remove  # take all of it out again
+npm run db:city-demo -- --assistance  # only mark the assistance programs (for the Assistance page)
 ```
 
 ## Dev without Docker

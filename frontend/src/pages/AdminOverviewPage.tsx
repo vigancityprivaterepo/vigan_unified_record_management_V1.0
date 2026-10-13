@@ -5,9 +5,11 @@ import { compact, shortName } from '@/components/shell/OfficeSidebar';
 import type { AdminTab } from '@/components/shell/AdminSidebar';
 import { api, ApiError, type CityAttention, type InsightsSummary, type OfficeBreakdown, type SankeyData } from '@/lib/api';
 import { seriesColor } from '@/lib/chartTheme';
+import { useViewOnly } from '@/lib/viewOnly';
 
 
 export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab) => void } = {}) {
+  const viewOnly = useViewOnly();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -49,9 +51,10 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
     api.insightsSankey({ barangayCode: barangay?.code }).then(setSankey).catch(() => setSankey(null));
   }, [barangay, from, attempt]);
   useEffect(() => {
+    if (viewOnly) return; // the queue holds names
     setQueueError(false);
     api.reviewQueue().then((q) => setQueueCount(q.length)).catch(() => { setQueueCount(null); setQueueError(true); });
-  }, [attempt]);
+  }, [attempt, viewOnly]);
 
   if (loadError) return <LoadError what="the city overview" error={loadError} onRetry={() => setAttempt((n) => n + 1)} />;
   if (!data) return <span className="spinner" />;
@@ -107,10 +110,12 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
             Barangay: {barangay.name} <Icon name="x" size={14} />
           </button>
         )}
-        <button className="btn btn--ghost btn--lg" onClick={handleExport} disabled={exporting}>
-          <Icon name="download" size={16} />
-          {exporting ? 'Exporting...' : 'Export masterlist'}
-        </button>
+        {!viewOnly && (
+          <button className="btn btn--ghost btn--lg" onClick={handleExport} disabled={exporting}>
+            <Icon name="download" size={16} />
+            {exporting ? 'Exporting...' : 'Export masterlist'}
+          </button>
+        )}
       </div>
       {exportError && (
         <div className="alert danger">
@@ -146,7 +151,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
             {summary && summary.totalCitizens > 0 ? `${((summary.overlapCount / summary.totalCitizens) * 100).toFixed(1)}% of the registry` : ''}
           </span>
         </div>
-        <div className="ws-card ws-kpi">
+        {!viewOnly && <div className="ws-card ws-kpi">
           <span className="ws-kpi-label">Awaiting duplicate review</span>
           <span className="ws-kpi-value">{queueCount ?? (queueError ? 'N/A' : '…')}</span>
           {queueCount && onNavigate ? (
@@ -156,7 +161,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate?: (tab: AdminTab)
           ) : (
             <span style={{ fontSize: 13, fontWeight: 600, color: queueCount ? 'var(--warning)' : 'var(--success)' }}>{queueCount ? 'Needs a decision' : 'All caught up'}</span>
           )}
-        </div>
+        </div>}
       </div>
 
       <AttentionTiles onNavigate={onNavigate} />
@@ -275,9 +280,10 @@ function niceMax(v: number): number {
 }
 
 // "Needs attention": the follow-up lists from the other pages, as counts
-// that open the page with the names (backend services/cityAttention.ts).
-// A failure here never blocks the rest of the Overview.
 function AttentionTiles({ onNavigate }: { onNavigate?: (tab: AdminTab) => void }) {
+  // A view-only account sees every count but can open only Program gaps.
+  const viewOnly = useViewOnly();
+  const canOpen = (key: AdminTab) => !!onNavigate && (!viewOnly || key === 'gaps');
   const [a, setA] = useState<CityAttention | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
@@ -310,11 +316,11 @@ function AttentionTiles({ onNavigate }: { onNavigate?: (tab: AdminTab) => void }
       <h2 id="attention-title" style={{ margin: 0, fontSize: 18 }}>Needs attention</h2>
       <div className="ws-kpis">
         {tiles.map((t) => (
-          <button key={t.key} type="button" className="ws-card ws-kpi br-kpi-btn ov-att" disabled={!onNavigate} onClick={() => onNavigate?.(t.key)}>
+          <button key={t.key} type="button" className="ws-card ws-kpi br-kpi-btn ov-att" disabled={!canOpen(t.key)} onClick={() => onNavigate?.(t.key)}>
             <span className="ws-kpi-label">{t.label}</span>
             <span className={`ws-kpi-value${t.warn ? '' : ' ov-att-ok'}`}>{t.value.toLocaleString()}</span>
             <span className="ws-kpi-sub">{t.sub}</span>
-            <span className="ov-att-go">Open {t.page ?? t.label} <Icon name="arrowR" size={14} /></span>
+            {canOpen(t.key) && <span className="ov-att-go">Open {t.page ?? t.label} <Icon name="arrowR" size={14} /></span>}
           </button>
         ))}
       </div>

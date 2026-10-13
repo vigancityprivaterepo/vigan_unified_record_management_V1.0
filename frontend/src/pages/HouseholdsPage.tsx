@@ -14,6 +14,8 @@ import {
   type HouseholdDetail,
   type HouseholdListItem,
   type HouseholdMember,
+  type HouseholdProfile,
+  type HouseholdProfileField,
   type Paginated,
   type PersonCategory,
 } from '@/lib/api';
@@ -237,6 +239,110 @@ export function HouseholdsPage({ initialQuery = '' }: { initialQuery?: string } 
   );
 }
 
+const niceDay = (day: string) => new Date(`${day}T00:00`).toLocaleDateString('en-PH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// The household's water, toilet, electricity and housing: the items CBMS
+// records per household. The questions and their answers come from the server.
+// Edited in a pop-up, like Add member.
+function LivingConditions({
+  headPersonKey,
+  householdName,
+  profile,
+  fields,
+  onSaved,
+  onError,
+}: {
+  headPersonKey: string;
+  householdName: string;
+  profile: HouseholdProfile | null;
+  fields: HouseholdProfileField[];
+  onSaved: () => void;
+  onError: (message: string) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string | null> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const answered = fields.filter((f) => profile?.values[f.key]).length;
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft) return;
+    setSaving(true);
+    try {
+      await api.saveHouseholdProfile(headPersonKey, draft);
+      setDraft(null);
+      onSaved();
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'Failed to save living conditions');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="ws-card ws-card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Living conditions</h2>
+          {profile && answered > 0 && (
+            <div style={{ fontSize: 13, color: 'var(--t-muted)' }}>
+              {profile.source === 'cbms' ? `From CBMS, as of ${niceDay(profile.asOf)}` : `Recorded ${niceDay(profile.asOf)}`}
+            </div>
+          )}
+        </div>
+        {!draft && (
+          <button
+            type="button"
+            className="btn btn--ghost ws-topbar-btn"
+            style={{ height: 36 }}
+            onClick={() => setDraft(Object.fromEntries(fields.map((f) => [f.key, profile?.values[f.key] ?? null])))}
+          >
+            {answered === 0 && <Icon name="plus" size={15} />}
+            {answered > 0 ? 'Edit' : 'Record'}
+          </button>
+        )}
+      </div>
+
+      {!draft && answered === 0 && <div style={{ fontSize: 13, color: 'var(--t-muted)' }}>Not recorded yet.</div>}
+
+      {!draft && answered > 0 && (
+        <div className="ws-hh-profile">
+          {fields.map((f) => {
+            const value = profile?.values[f.key];
+            return (
+              <div key={f.key}>
+                <span>{f.label}</span>
+                <strong className={value ? undefined : 'is-empty'}>{value ? f.options.find((o) => o.value === value)?.label ?? value : 'Not recorded'}</strong>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {draft && (
+        <Modal title="Living conditions" eyebrow={householdName} wide onClose={() => !saving && setDraft(null)}>
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="ws-hh-profile-form">
+              {fields.map((f) => (
+                <div key={f.key} className="field">
+                  <label className="field-label" htmlFor={`hh-${f.key}`}>{f.label}</label>
+                  <select id={`hh-${f.key}`} className="select" value={draft[f.key] ?? ''} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value || null })}>
+                    <option value="">Not recorded</option>
+                    {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn--ghost" disabled={saving} onClick={() => setDraft(null)}>Cancel</button>
+              <button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function HouseholdPanel({
   household,
   detail,
@@ -365,6 +471,32 @@ function HouseholdPanel({
           <div><strong>{offices}</strong><span>Offices serving</span></div>
         </div>
       </div>
+
+      <LivingConditions headPersonKey={household.personKey} householdName={`${household.personLname} household`} profile={detail.profile} fields={detail.profileFields} onSaved={onChanged} onError={onError} />
+
+      {detail.assistance.length > 0 && (
+        <div className="ws-card ws-card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Assistance received</h2>
+          <div className="table-scroll">
+            <table className="table">
+              <thead><tr><th>Date</th><th>Program</th><th>Given to</th><th className="as-num">Value</th></tr></thead>
+              <tbody>
+                {detail.assistance.map((a) => (
+                  <tr key={a.recordId}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{a.on}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{a.program}</div>
+                      <div style={{ fontSize: 13, color: 'var(--t-muted)' }}>{a.office}</div>
+                    </td>
+                    <td>{a.recipient}</td>
+                    <td className="as-num">{a.amount === null ? '' : `₱${a.amount.toLocaleString('en-PH')}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="ws-card ws-card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>

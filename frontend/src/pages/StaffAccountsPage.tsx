@@ -11,9 +11,14 @@ import { ADMIN_HUE, MONOCHROME, initials, officeAppearance, officeColor } from '
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',
   office_staff: 'Office staff',
+  viewer: 'City official (view only)',
 };
 
-const CREATABLE_ROLES: StaffRole[] = ['admin', 'office_staff'];
+const CREATABLE_ROLES: StaffRole[] = ['admin', 'office_staff', 'viewer'];
+// Shown under the Role field, so whoever creates the account knows what it opens.
+const ROLE_NOTE: Partial<Record<StaffRole, string>> = {
+  viewer: 'For the mayor and other officials. Sees Overview, Visualizations, Insights and Program gaps as counts and charts only: no names, no records, no exports, and nothing can be changed.',
+};
 
 // Suggestions only -- the Position field is free text, so any title works.
 const POSITION_SUGGESTIONS = [
@@ -158,7 +163,7 @@ export function StaffAccountsPage({ initialQuery }: { initialQuery?: string } = 
   }
 
   const officeById = new Map(offices.map((o) => [o.id, o]));
-  const hueOf = (a: StaffAccount) => (a.role === 'admin' ? ADMIN_HUE : officeAppearance(officeById.get(a.officeId ?? '') ?? null).hue);
+  const hueOf = (a: StaffAccount) => (a.role !== 'office_staff' ? ADMIN_HUE : officeAppearance(officeById.get(a.officeId ?? '') ?? null).hue);
   const chips: Array<{ key: Filter; label: string; count: number }> = accounts
     ? [
         { key: 'all', label: 'All offices', count: accounts.length },
@@ -166,9 +171,10 @@ export function StaffAccountsPage({ initialQuery }: { initialQuery?: string } = 
           .map((o) => ({ key: o.id, label: shortName(o.name), count: accounts.filter((a) => a.officeId === o.id).length }))
           .filter((c) => c.count > 0 || c.key === filter || offices.length > 8),
         { key: 'admin', label: 'Administrators', count: accounts.filter((a) => a.role === 'admin').length },
+        { key: 'viewer', label: 'City officials', count: accounts.filter((a) => a.role === 'viewer').length },
       ]
     : [];
-  const shown = (accounts ?? []).filter((a) => (filter === 'all' ? true : filter === 'admin' ? a.role === 'admin' : a.officeId === filter));
+  const shown = (accounts ?? []).filter((a) => (filter === 'all' ? true : filter === 'admin' || filter === 'viewer' ? a.role === filter : a.officeId === filter));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -248,7 +254,7 @@ export function StaffAccountsPage({ initialQuery }: { initialQuery?: string } = 
                       </td>
                       <td>
                         <span className="ws-office-chip" style={{ background: officeColor(hue, 'soft'), color: officeColor(hue, 'deep'), borderColor: officeColor(hue, 'line') }}>
-                          {a.role === 'admin' ? 'Administrator' : office ? shortName(office.name) : 'No office'}
+                          {a.role === 'admin' ? 'Administrator' : a.role === 'viewer' ? 'City official' : office ? shortName(office.name) : 'No office'}
                         </span>
                       </td>
                       <td>
@@ -432,6 +438,7 @@ function AddAccountForm({
             <option key={r} value={r}>{ROLE_LABELS[r]}</option>
           ))}
         </select>
+        {ROLE_NOTE[role] && <p className="ws-kpi-sub" style={{ margin: '6px 0 0' }}>{ROLE_NOTE[role]}</p>}
       </div>
       {role === 'office_staff' && (
         <div className="field">
@@ -532,6 +539,7 @@ function EditAccountForm({
             </option>
           ))}
         </select>
+        {ROLE_NOTE[role] && <p className="ws-kpi-sub" style={{ margin: '6px 0 0' }}>{ROLE_NOTE[role]}</p>}
       </div>
       {role === 'office_staff' && (
         <div className="field span-2">

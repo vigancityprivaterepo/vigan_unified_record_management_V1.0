@@ -1,0 +1,531 @@
+openapi: 3.0.3
+info:
+  title: AICS Integration API
+  version: 1.0.0
+  description: |
+    Read-only bridge from the Vigan AICS system to the Vigan Unified Central
+    Record Management System (VUCRMS).
+
+    Lets VUCRMS read the clients AICS has registered and the assistance AICS has
+    released, so the City registry and its Assistance page stay current without
+    anyone encoding a case twice.
+
+    Rules of this API:
+
+    - **Read-only.** Nothing here creates or changes AICS data.
+    - **Machine to machine.** The caller is a system, not a staff account. It
+      sends a key in the `X-Integration-Key` header. Staff tokens are refused.
+    - **Least data.** Identity, address, program flags, household members and
+      released assistance only. No diagnosis, medicines, hospital details,
+      case study narrative, photos, contact numbers or RFID numbers.
+    - **Incremental.** Each list takes `updatedSince` and returns a `nextCursor`.
+      Call again with that cursor until `nextCursor` is null, then store the
+      latest `updatedAt` you saw and use it as `updatedSince` next time.
+    - **Logged.** Every call is recorded on the AICS side with the key's name,
+      the path and the number of records returned.
+  contact:
+    name: City Government of Vigan, ICT
+servers:
+  - url: http://localhost:5101/api/integration/v1
+    description: AICS backend on the City server (as published by docker-compose.production.yml)
+  - url: http://localhost:5001/api/integration/v1
+    description: AICS backend in local development
+security:
+  - IntegrationKey: []
+tags:
+  - name: Clients
+    description: People registered in AICS.
+  - name: Releases
+    description: Assistance that AICS has released.
+  - name: Status
+    description: Checks that the bridge is reachable and the key is accepted.
+paths:
+  /ping:
+    get:
+      tags: [Status]
+      operationId: ping
+      summary: Check the connection and the key
+      description: Returns who the key belongs to and the server time. Use it to test the bridge before a sync.
+      responses:
+        '200':
+          description: The key is accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ping'
+              example:
+                status: ok
+                keyName: vucrms
+                serverTime: '2026-10-13T02:15:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /clients:
+    get:
+      tags: [Clients]
+      operationId: listClients
+      summary: List clients changed since a point in time
+      description: |
+        Clients ordered by `updatedAt`, oldest first, so a caller that stops
+        halfway can resume. A client that was merged into another is still
+        returned, with `mergedIntoClientId` set, so the caller can merge its
+        own copy.
+      parameters:
+        - $ref: '#/components/parameters/UpdatedSince'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of clients.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientPage'
+              example:
+                items:
+                  - id: 7b1c2f0e-3a55-4f0e-9d7a-2f6f0c1a9b11
+                    clientNumber: CID-VGN-731
+                    lastName: PONS
+                    firstName: LINDA
+                    middleName: DEJAYCO
+                    dateOfBirth: '1960-07-18'
+                    sex: Female
+                    civilStatus: Single
+                    barangay: Nagsangalan
+                    municipality: Vigan City
+                    province: Ilocos Sur
+                    occupation: null
+                    is4ps: false
+                    isPwd: false
+                    isSenior: true
+                    isSoloParent: false
+                    familyMembers:
+                      - name: GEOZETTE DELA CRUZ
+                        age: 40
+                        dateOfBirth: '1986-02-14'
+                        relationship: Daughter
+                        sex: Female
+                        occupation: null
+                    mergedIntoClientId: null
+                    createdAt: '2026-09-02T01:20:11.000Z'
+                    updatedAt: '2026-10-09T03:41:52.000Z'
+                nextCursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /clients/{clientId}:
+    get:
+      tags: [Clients]
+      operationId: getClient
+      summary: Get one client
+      description: The same fields as the list, for one client. Use it when a release refers to a client the caller has not seen yet.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The client.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /releases:
+    get:
+      tags: [Releases]
+      operationId: listReleases
+      summary: List released assistance changed since a point in time
+      description: |
+        One item per AICS case that reached the status `released`, ordered by
+        `updatedAt`, oldest first. A release that was later archived or
+        cancelled is returned again with `withdrawn: true`, so the caller can
+        take it back out. Cases that were never released are not listed.
+      parameters:
+        - $ref: '#/components/parameters/UpdatedSince'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of releases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasePage'
+              example:
+                items:
+                  - id: 0d4c9a52-6c1e-4b7a-8f0e-6b9a1c2d3e4f
+                    caseNumber: MD-AICS-VGN-2274
+                    clientId: 7b1c2f0e-3a55-4f0e-9d7a-2f6f0c1a9b11
+                    assistanceType: medicine
+                    amount: 2500
+                    releasedAt: '2026-10-10T06:05:00.000Z'
+                    beneficiaryIsClient: true
+                    beneficiaryName: null
+                    beneficiaryRelationship: null
+                    deceased: null
+                    withdrawn: false
+                    updatedAt: '2026-10-10T06:05:00.000Z'
+                nextCursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+components:
+  securitySchemes:
+    IntegrationKey:
+      type: apiKey
+      in: header
+      name: X-Integration-Key
+      description: |
+        A key issued by the AICS administrator to one calling system. AICS keeps
+        only its SHA-256 hash (INTEGRATION_API_KEYS in the AICS environment).
+        Send it on every request. It is not a staff login and gives no access to
+        the rest of the AICS API.
+  parameters:
+    UpdatedSince:
+      name: updatedSince
+      in: query
+      required: false
+      description: Only records changed at or after this moment (ISO 8601, UTC). Leave it out for a first full load.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-01T00:00:00.000Z'
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: The `nextCursor` of the previous page. Opaque; pass it back unchanged with the same `updatedSince`.
+      schema:
+        type: string
+        maxLength: 200
+      example: MjAyNi0xMC0wOVQwMzo0MTo1Mi4wMDBafDdiMWMyZjBl
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Records per page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 200
+      example: 200
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      description: The AICS id of the client (a UUID), as given in `Client.id` or `Release.clientId`.
+      schema:
+        type: string
+        format: uuid
+      example: 7b1c2f0e-3a55-4f0e-9d7a-2f6f0c1a9b11
+  responses:
+    BadRequest:
+      description: A query parameter is not valid, for example `updatedSince` is not a date or `limit` is above 500.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Validation failed
+            issues:
+              - path: updatedSince
+                message: Invalid datetime
+    Unauthorized:
+      description: The `X-Integration-Key` header is missing, unknown or switched off. Check the key with the AICS administrator; retrying will not help.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Invalid integration key
+    NotFound:
+      description: No client has that id.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Client not found
+    TooManyRequests:
+      description: Too many calls in a short time (more than 240 a minute for one key). Wait 30 seconds, then repeat the same request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Too many requests
+  schemas:
+    Ping:
+      type: object
+      required: [status, keyName, serverTime]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Always `ok` when the key is accepted.
+        keyName:
+          type: string
+          description: The name the AICS administrator gave this key.
+          example: vucrms
+        serverTime:
+          type: string
+          format: date-time
+          description: The AICS server clock, to compare with `updatedAt` values.
+    Client:
+      type: object
+      description: A person registered in AICS.
+      required: [id, clientNumber, lastName, firstName, is4ps, isPwd, isSenior, isSoloParent, familyMembers, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The AICS id of the client. Stable; use it to recognise the same client on later syncs.
+        clientNumber:
+          type: string
+          description: The number AICS staff see on the client record.
+          example: CID-VGN-731
+        lastName:
+          type: string
+          description: Family name, in capitals as AICS stores it.
+          example: PONS
+        firstName:
+          type: string
+          description: Given name.
+          example: LINDA
+        middleName:
+          type: string
+          nullable: true
+          description: Middle name, or null if not recorded.
+          example: DEJAYCO
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+          description: Date of birth (YYYY-MM-DD), or null if not recorded. Needed to match the person in the registry.
+          example: '1960-07-18'
+        sex:
+          type: string
+          nullable: true
+          description: As recorded in AICS, usually `Male` or `Female`.
+          example: Female
+        civilStatus:
+          type: string
+          nullable: true
+          description: As recorded in AICS, for example `Single`, `Married`, `Widowed`.
+          example: Single
+        barangay:
+          type: string
+          nullable: true
+          description: Barangay name as typed in AICS (not a PSGC code).
+          example: Nagsangalan
+        municipality:
+          type: string
+          nullable: true
+          description: City or municipality. A client may live outside Vigan.
+          example: Vigan City
+        province:
+          type: string
+          nullable: true
+          description: Province.
+          example: Ilocos Sur
+        occupation:
+          type: string
+          nullable: true
+          description: Occupation, or null if none was given.
+        is4ps:
+          type: boolean
+          description: Marked as a 4Ps beneficiary in AICS.
+        isPwd:
+          type: boolean
+          description: Marked as a person with disability in AICS.
+        isSenior:
+          type: boolean
+          description: Marked as a senior citizen in AICS.
+        isSoloParent:
+          type: boolean
+          description: Marked as a solo parent in AICS.
+        familyMembers:
+          type: array
+          description: The client's family composition as listed in AICS. Empty when none was recorded.
+          items:
+            $ref: '#/components/schemas/FamilyMember'
+        mergedIntoClientId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when AICS merged this client into another as a duplicate. Treat this record as the same person as that client.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the client was registered in AICS.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the client record last changed. Lists are ordered by this.
+    FamilyMember:
+      type: object
+      description: One line of a client's family composition. Not every line has a date of birth; without one a family member cannot be matched to the registry reliably.
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Full name as typed in AICS.
+          example: GEOZETTE DELA CRUZ
+        age:
+          type: integer
+          nullable: true
+          description: Age in years when the family composition was last edited.
+          example: 40
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+          description: Date of birth (YYYY-MM-DD), or null if not recorded.
+          example: '1986-02-14'
+        relationship:
+          type: string
+          nullable: true
+          description: Relationship to the client.
+          example: Daughter
+        sex:
+          type: string
+          nullable: true
+          description: As recorded in AICS.
+          example: Female
+        occupation:
+          type: string
+          nullable: true
+          description: Occupation, or null if none was given.
+    Release:
+      type: object
+      description: Assistance AICS released for one case.
+      required: [id, clientId, assistanceType, releasedAt, beneficiaryIsClient, withdrawn, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The AICS id of the case. Stable; use it so a release is never counted twice.
+        caseNumber:
+          type: string
+          nullable: true
+          description: The case number staff see.
+          example: MD-AICS-VGN-2274
+        clientId:
+          type: string
+          format: uuid
+          description: The client the case belongs to. Look it up with `GET /clients/{clientId}`.
+        assistanceType:
+          type: string
+          enum: [medicine, burial, hospital, medical, eyeglass, plain]
+          description: The kind of assistance. `plain` is financial assistance without a guarantee letter.
+        amount:
+          type: number
+          nullable: true
+          description: Amount granted, in pesos. Null when the case has no amount.
+          example: 2500
+        releasedAt:
+          type: string
+          format: date-time
+          description: When the case was marked released.
+        beneficiaryIsClient:
+          type: boolean
+          description: True when the assistance was for the client. False when the client asked on behalf of someone else, named in `beneficiaryName`.
+        beneficiaryName:
+          type: string
+          nullable: true
+          description: The person the assistance was for, when it was not the client.
+        beneficiaryRelationship:
+          type: string
+          nullable: true
+          description: How the client is related to that person.
+        deceased:
+          type: object
+          nullable: true
+          description: "Burial assistance only - the person who died, as the case maker typed it. Null for every other type. AICS records an age, not a date of birth, and does not give out the cause of death."
+          required: [name]
+          properties:
+            name:
+              type: string
+              description: Full name of the deceased as typed in AICS.
+              example: PEDRO R. REYES
+            age:
+              type: integer
+              nullable: true
+              description: Age at death, if recorded.
+            sex:
+              type: string
+              nullable: true
+            civilStatus:
+              type: string
+              nullable: true
+            dateOfDeath:
+              type: string
+              format: date
+              nullable: true
+              description: Date of death (YYYY-MM-DD), if recorded.
+        withdrawn:
+          type: boolean
+          description: True when the case was archived or cancelled after release. Remove or archive the caller's copy.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the case last changed. Lists are ordered by this.
+    ClientPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          description: Up to `limit` clients.
+          items:
+            $ref: '#/components/schemas/Client'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` to get the next page. Null on the last page.
+    ReleasePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          description: Up to `limit` releases.
+          items:
+            $ref: '#/components/schemas/Release'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` to get the next page. Null on the last page.
+    Error:
+      type: object
+      description: The error body every AICS endpoint returns.
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: What went wrong, in plain words.
+        issues:
+          type: array
+          description: Present on a 400, one entry per invalid parameter.
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path:
+                type: string
+                description: The parameter that is not valid.
+              message:
+                type: string
+                description: Why it is not valid.

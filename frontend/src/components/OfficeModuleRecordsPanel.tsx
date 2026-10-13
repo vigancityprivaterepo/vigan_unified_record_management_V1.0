@@ -5,7 +5,8 @@ import { initials } from '@/lib/officeTheme';
 import { IconButton } from '@/components/IconButton';
 import { RecordStatusPill, recordPersonName } from '@/components/RecordStatusPill';
 import { RecordsListTable, type RecordColumn } from '@/components/RecordsListTable';
-import { ARCHIVE_ICON, CHECK_CIRCLE_ICON, EDIT_ICON } from '@/lib/actionIcons';
+import { ARCHIVE_ICON, CHECK_CIRCLE_ICON, EDIT_ICON, PRINT_ICON } from '@/lib/actionIcons';
+import { PrintRecordDialog } from '@/components/PrintRecordDialog';
 import {
   api,
   ApiError,
@@ -78,6 +79,7 @@ export function OfficeModuleRecordsPanel({
   const [fields, setFields] = useState<OfficeFormField[] | null>(null);
   const [status, setStatus] = useState<Filter>('all');
   const [editing, setEditing] = useState<OfficeRecordListItem | null>(null);
+  const [printing, setPrinting] = useState<OfficeRecordListItem | null>(null);
   const reloadRef = useRef<() => void>(() => undefined);
   const [counts, setCounts] = useState<OfficeRecordList['counts'] | null>(null);
   const [fieldsError, setFieldsError] = useState<string | null>(null);
@@ -255,6 +257,8 @@ export function OfficeModuleRecordsPanel({
                   if (r.status === 'review') return null;
                   return (
                     <span style={{ display: 'inline-flex', gap: 4 }}>
+                      {/* A certification or ID needs a citizen in the registry to certify. */}
+                      {r.citizen && <IconButton label="Print certificate or ID" icon={PRINT_ICON} onClick={() => setPrinting(r)} />}
                       <IconButton
                         label="Edit"
                         icon={EDIT_ICON}
@@ -269,6 +273,9 @@ export function OfficeModuleRecordsPanel({
                 }
           }
         />
+      )}
+      {printing && fields && (
+        <PrintRecordDialog officeId={officeId} officeModule={officeModule} fields={fields} recordId={printing.id} personName={nameFor(printing)} onClose={() => setPrinting(null)} />
       )}
       {editing && fields && (
         <Modal title="Correct record" eyebrow={`${officeModule.name} · ${nameFor(editing)}`} onClose={() => setEditing(null)}>

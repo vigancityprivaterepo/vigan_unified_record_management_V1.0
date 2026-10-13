@@ -29,7 +29,7 @@ import { Client } from 'pg';
 import { env } from '../src/env';
 import { generatePassword, hashPassword } from '../src/lib/staffAccountCredentials';
 
-const VALID_ROLES = ['admin', 'office_staff'];
+const VALID_ROLES = ['admin', 'office_staff', 'viewer'];
 
 async function main() {
   const [command, ...args] = process.argv.slice(2);

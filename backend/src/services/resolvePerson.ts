@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { nameKey } from '../lib/nameKey';
 import { prisma } from '../lib/prisma';
 import { getFuzzyMatchThreshold, getBdateToleranceDays } from './config';
 
@@ -27,7 +28,8 @@ export type FuzzyCandidate = {
 export type ResolveResult =
   | { status: 'matched'; personKey: string }
   | { status: 'needs_review'; candidates: FuzzyCandidate[] }
-  | { status: 'created'; personKey: string };
+  // `unsure`: added although a close name exists (createIfUnsure below).
+  | { status: 'created'; personKey: string; unsure?: true };
 
 export type ResolvePersonOptions = {
   actorUserId?: string;
@@ -36,6 +38,11 @@ export type ResolvePersonOptions = {
   // migration-owner superuser. Defaults to that superuser client for
   // existing callers/tests that don't care.
   client?: PrismaClient;
+  // Add the person even when a close name exists, instead of 'needs_review'.
+  // For callers with no review queue to send the entry to (the AICS pull's
+  // family members): the pair then shows under possible duplicates
+  // (services/duplicateCitizens.ts) for the administrator to merge.
+  createIfUnsure?: boolean;
 };
 
 type QueryableClient = Pick<PrismaClient, '$queryRaw'>;
@@ -43,7 +50,7 @@ type QueryableClient = Pick<PrismaClient, '$queryRaw'>;
 // Same normalized key used by the DB-level advisory lock: two candidates
 // that would collide on the exact-match check must hash to the same lock.
 function lockKeyFor(candidate: ResolveCandidate): string {
-  return `${candidate.lname.trim().toLowerCase()}|${candidate.fname.trim().toLowerCase()}|${candidate.bdate.toISOString().slice(0, 10)}`;
+  return `${nameKey(candidate.lname)}|${nameKey(candidate.fname)}|${candidate.bdate.toISOString().slice(0, 10)}`;
 }
 
 async function findExactMatch(
@@ -53,9 +60,10 @@ async function findExactMatch(
   const rows = await client.$queryRaw<Array<{ person_key: string }>>`
     SELECT person_key FROM "Citizen"
     WHERE is_archived = false
-      AND lower(trim(person_lname)) = lower(trim(${candidate.lname}))
-      AND lower(trim(person_fname)) = lower(trim(${candidate.fname}))
+      AND name_key(person_lname) = name_key(${candidate.lname})
+      AND name_key(person_fname) = name_key(${candidate.fname})
       AND person_bdate = ${candidate.bdate}::date
+    ORDER BY created_at
     LIMIT 1
   `;
   return rows[0] ? { personKey: rows[0].person_key } : null;
@@ -99,8 +107,9 @@ async function findFuzzyMatches(client: QueryableClient, candidate: ResolveCandi
 // Every satellite table's create-flow calls this before writing -- no
 // per-office copies of the resolution logic.
 //
-// 1. Exact match (case-insensitive, trimmed) on lname+fname+bdate -> reuse
-//    that person_key.
+// 1. Same name and birthdate -> reuse that person_key. Names are compared by
+//    name_key() (lib/nameKey.ts), so capitals, spacing, punctuation, "MA."
+//    for "MARIA" and a JR/SR do not make a second person.
 // 2. No exact match -> pg_trgm fuzzy search (name similarity + near bdate).
 //    Any hit above threshold -> 'needs_review', never auto-decided.
 // 3. No match at all -> create a new Citizen row.
@@ -127,7 +136,7 @@ export async function resolvePerson(candidate: ResolveCandidate, options?: Resol
     }
 
     const fuzzy = await findFuzzyMatches(tx, candidate);
-    if (fuzzy.length > 0) {
+    if (fuzzy.length > 0 && !options?.createIfUnsure) {
       return { status: 'needs_review' as const, candidates: fuzzy };
     }
 
@@ -150,7 +159,7 @@ export async function resolvePerson(candidate: ResolveCandidate, options?: Resol
       },
       select: { personKey: true },
     });
-    return { status: 'created' as const, personKey: created.personKey };
+    return { status: 'created' as const, personKey: created.personKey, ...(fuzzy.length > 0 ? { unsure: true as const } : {}) };
   });
 }
 

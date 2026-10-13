@@ -585,10 +585,16 @@ function ModuleCoreFieldsEditor({
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Number fields the value of a release can be read from.
+  const [numberFields, setNumberFields] = useState<OfficeFormField[]>([]);
 
   useEffect(() => () => {
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
   }, []);
+  useEffect(() => {
+    if (!current.givesAssistance) return;
+    api.listOfficeModuleFields(office.id, officeModule.id).then((all) => setNumberFields(all.filter((f) => f.fieldType === 'NUMBER'))).catch(() => setNumberFields([]));
+  }, [office.id, officeModule.id, current.givesAssistance]);
 
   async function save(key: string, patch: Partial<OfficeModule>) {
     setError(null);
@@ -691,6 +697,32 @@ function ModuleCoreFieldsEditor({
               {saveStatus('collectBarangay')}
             </label>
           </div>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={current.givesAssistance ?? false}
+              disabled={savingKey !== null}
+              onChange={(e) => save('givesAssistance', { givesAssistance: e.target.checked })}
+            />
+            <span className="box" />
+            Counts as assistance (each record is help given to the person)
+            {saveStatus('givesAssistance')}
+          </label>
+          {current.givesAssistance && (
+            <div className="field">
+              <label className="field-label" htmlFor={`amount-${current.id}`}>Field holding the value in pesos {saveStatus('assistanceAmountKey')}</label>
+              <select
+                id={`amount-${current.id}`}
+                className="select"
+                value={current.assistanceAmountKey ?? ''}
+                disabled={savingKey !== null}
+                onChange={(e) => save('assistanceAmountKey', { assistanceAmountKey: e.target.value || null })}
+              >
+                <option value="">No amount: count releases only</option>
+                {numberFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+              </select>
+            </div>
+          )}
         </>
       )}
       {error && <div className="field-error">{error}</div>}

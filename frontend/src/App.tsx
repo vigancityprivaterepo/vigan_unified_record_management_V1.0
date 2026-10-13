@@ -8,6 +8,7 @@ import { AdminSidebar, ADMIN_TAB_LABELS, type AdminTab } from '@/components/shel
 import { OfficeSidebar, shortName, type OfficeTab } from '@/components/shell/OfficeSidebar';
 import { api, type Office, type OfficeModule, type Session, type StaffRole } from '@/lib/api';
 import { ADMIN_HUE, MONOCHROME, initials, officeAppearance, officeColor } from '@/lib/officeTheme';
+import { ViewOnlyContext } from '@/lib/viewOnly';
 import { AdminInsightsPage } from '@/pages/AdminInsightsPage';
 import { AdminOfficeWorkspacePage } from '@/pages/AdminOfficeWorkspacePage';
 import { AdminOverviewPage } from '@/pages/AdminOverviewPage';
@@ -23,6 +24,7 @@ import { DynamicOfficeRecordsPage } from '@/pages/DynamicOfficeRecordsPage';
 import { HouseholdsPage } from '@/pages/HouseholdsPage';
 import { ProgramGapsPage } from '@/pages/ProgramGapsPage';
 import { DisasterListsPage } from '@/pages/DisasterListsPage';
+import { AssistancePage } from '@/pages/AssistancePage';
 import { BusinessRenewalsPage } from '@/pages/BusinessRenewalsPage';
 import { HeritageZonePage } from '@/pages/HeritageZonePage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
@@ -47,6 +49,7 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   citizens: CitizensPage,
   households: HouseholdsPage,
   gaps: () => <ProgramGapsPage />,
+  assistance: AssistancePage,
   disaster: () => <DisasterListsPage />,
   renewals: () => <BusinessRenewalsPage />,
   heritage: HeritageZonePage,
@@ -59,7 +62,10 @@ const PAGE_BY_ADMIN_TAB: Partial<Record<AdminTab, (props: AdminPageProps) => JSX
   'settings:duplicate-matching': DuplicateMatchingPage,
 };
 
-const ROLE_LABEL: Record<StaffRole, string> = { admin: 'Administrator', office_staff: 'Office staff' };
+const ROLE_LABEL: Record<StaffRole, string> = { admin: 'Administrator', office_staff: 'Office staff', viewer: 'City official (view only)' };
+
+// The pages a 'viewer' account gets: counts and charts, no lists of people.
+const VIEWER_TABS: AdminTab[] = ['dashboard', 'visualizations:list', 'reports', 'insights', 'gaps', 'assistance'];
 
 function useTheme(): [string, () => void] {
   const [theme, setTheme] = useState<string>(() => document.documentElement.getAttribute('data-theme') || 'light');
@@ -97,6 +103,7 @@ export default function App() {
 
   const isOfficeStaff = session !== 'loading' && session !== null && session.role === 'office_staff';
   const isAdmin = session !== 'loading' && session !== null && session.role === 'admin';
+  const isViewer = session !== 'loading' && session !== null && session.role === 'viewer';
 
   useEffect(() => {
     if (!isOfficeStaff || !session.officeId) return;
@@ -112,10 +119,10 @@ export default function App() {
   }, [isOfficeStaff, session, officeAttempt]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isViewer) return;
     api.listOffices().then(setOffices).catch(() => setOffices([]));
-    api.reviewQueue().then((q) => setQueueCount(q.length)).catch(() => setQueueCount(0));
-  }, [isAdmin, tab]);
+    if (isAdmin) api.reviewQueue().then((q) => setQueueCount(q.length)).catch(() => setQueueCount(0));
+  }, [isAdmin, isViewer, tab]);
 
   useEffect(() => { document.body.classList.toggle('has-drawer-open', drawerOpen); }, [drawerOpen]);
   useEffect(() => {
@@ -130,8 +137,12 @@ export default function App() {
   }
   if (!session) return <LoginPage onLogin={setSession} />;
 
-  const activeTab: Tab = tab ?? (isOfficeStaff ? 'home' : 'dashboard');
-  const selectTab = (key: Tab) => { setTab(key); setSearchSeed(null); setDrawerOpen(false); window.scrollTo(0, 0); };
+  const wanted: Tab = tab ?? (isOfficeStaff ? 'home' : 'dashboard');
+  const activeTab: Tab = isViewer && !VIEWER_TABS.includes(wanted as AdminTab) ? 'dashboard' : wanted;
+  const selectTab = (key: Tab) => {
+    if (isViewer && !VIEWER_TABS.includes(key as AdminTab)) return;
+    setTab(key); setSearchSeed(null); setDrawerOpen(false); window.scrollTo(0, 0);
+  };
   const openSearch = (target: string, q: string) => {
     setMobileSearchOpen(false);
     selectTab(target as Tab);
@@ -177,7 +188,7 @@ export default function App() {
     pageElement = <AdminOfficeWorkspacePage key={viewedOffice.id} office={viewedOffice} />;
   } else {
     const Page = PAGE_BY_ADMIN_TAB[activeTab as AdminTab];
-    crumbs = ['Administration', ADMIN_TAB_LABELS[activeTab] ?? ''];
+    crumbs = [isViewer ? 'City view' : 'Administration', ADMIN_TAB_LABELS[activeTab] ?? ''];
     const seed = seedFor(activeTab);
     pageElement = Page ? <Page key={seed?.n ?? 0} onNavigate={(t, f) => (f ? openSearch(t, f) : selectTab(t))} initialQuery={seed?.q} /> : <div />;
   }
@@ -219,7 +230,7 @@ export default function App() {
       {isOfficeStaff ? (
         <OfficeSidebar office={office} modules={modules ?? []} activeTab={activeTab as OfficeTab} onSelect={selectTab} counts={counts} lists={officeLists} footer={userCard} />
       ) : (
-        <AdminSidebar activeTab={activeTab as AdminTab} onSelect={selectTab} offices={offices} queueCount={queueCount} footer={userCard} />
+        <AdminSidebar activeTab={activeTab as AdminTab} onSelect={selectTab} offices={offices} queueCount={queueCount} footer={userCard} only={isViewer ? VIEWER_TABS : undefined} />
       )}
 
       <div className="main">
@@ -236,16 +247,21 @@ export default function App() {
             ))}
           </div>
           <div className="topbar-actions">
-            <TopbarSearch scope={searchScope} placeholder={searchPlaceholder} onOpen={openSearch} onRequestMobile={() => setMobileSearchOpen(true)} />
-            <button
-              type="button"
-              className="btn btn--ghost ws-topbar-btn ws-search-toggle"
-              aria-label={mobileSearchOpen ? 'Close search' : 'Search'}
-              aria-expanded={mobileSearchOpen}
-              onClick={() => setMobileSearchOpen((v) => !v)}
-            >
-              <Icon name={mobileSearchOpen ? 'x' : 'search'} size={18} />
-            </button>
+            {/* The search finds people by name, which a view-only account may not see. */}
+            {!isViewer && (
+              <>
+                <TopbarSearch scope={searchScope} placeholder={searchPlaceholder} onOpen={openSearch} onRequestMobile={() => setMobileSearchOpen(true)} />
+                <button
+                  type="button"
+                  className="btn btn--ghost ws-topbar-btn ws-search-toggle"
+                  aria-label={mobileSearchOpen ? 'Close search' : 'Search'}
+                  aria-expanded={mobileSearchOpen}
+                  onClick={() => setMobileSearchOpen((v) => !v)}
+                >
+                  <Icon name={mobileSearchOpen ? 'x' : 'search'} size={18} />
+                </button>
+              </>
+            )}
             <button className="btn btn--ghost ws-topbar-btn" aria-label="Help" onClick={() => setHelpOpen(true)}>
               <Icon name="help" size={16} />
               <span>Help</span>
@@ -256,16 +272,16 @@ export default function App() {
             </button>
           </div>
         </header>
-        {mobileSearchOpen && (
+        {mobileSearchOpen && !isViewer && (
           <div className="ws-search-mobile" onKeyDown={(e) => e.key === 'Escape' && setMobileSearchOpen(false)}>
             <TopbarSearch scope={searchScope} placeholder={searchPlaceholder} onOpen={openSearch} autoFocus />
           </div>
         )}
 
-        <main className="content">{pageElement}</main>
+        <main className="content"><ViewOnlyContext.Provider value={isViewer}>{pageElement}</ViewOnlyContext.Provider></main>
 
         {helpOpen && (
-          <Modal title="How this works" eyebrow={isOfficeStaff ? office?.name ?? 'Office' : 'Administration console'} onClose={() => setHelpOpen(false)}>
+          <Modal title="How this works" eyebrow={isOfficeStaff ? office?.name ?? 'Office' : isViewer ? 'City view' : 'Administration console'} onClose={() => setHelpOpen(false)}>
             <HelpContent role={session.role} lists={officeLists} modules={modules ?? []} />
           </Modal>
         )}

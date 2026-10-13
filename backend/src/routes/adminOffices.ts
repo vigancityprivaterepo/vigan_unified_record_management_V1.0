@@ -295,6 +295,8 @@ const MODULE_SELECT = {
   collectStreet: true,
   collectBarangay: true,
   collectPersonInfo: true,
+  givesAssistance: true,
+  assistanceAmountKey: true,
 } as const;
 
 adminOfficesRouter.get(
@@ -405,6 +407,9 @@ const updateModuleSchema = z.object({
   collectStreet: z.boolean().optional(),
   collectBarangay: z.boolean().optional(),
   collectPersonInfo: z.boolean().optional(),
+  // See schema.prisma: counts this program's records on the Assistance page.
+  givesAssistance: z.boolean().optional(),
+  assistanceAmountKey: z.string().trim().min(1).max(120).nullable().optional(),
 });
 
 adminOfficesRouter.patch(
@@ -426,9 +431,18 @@ adminOfficesRouter.patch(
     // requiresCitizenLink false too, whether that's this request turning
     // person info off, or a still-off module from before this request.
     const collectPersonInfo = parsed.data.collectPersonInfo ?? existing.collectPersonInfo;
+    // The amount field must be one of this program's NUMBER fields, and is
+    // dropped when the program stops counting as assistance.
+    const givesAssistance = parsed.data.givesAssistance ?? existing.givesAssistance;
+    const assistanceAmountKey = !givesAssistance ? null : parsed.data.assistanceAmountKey === undefined ? existing.assistanceAmountKey : parsed.data.assistanceAmountKey;
+    if (assistanceAmountKey && !(await client.officeFormField.count({ where: { moduleId: existing.id, key: assistanceAmountKey, fieldType: 'NUMBER' } }))) {
+      sendError(res, 400, 'VALIDATION_ERROR', "The amount field must be one of this program's number fields");
+      return;
+    }
     const data = {
       ...parsed.data,
       requiresCitizenLink: collectPersonInfo ? (parsed.data.requiresCitizenLink ?? existing.requiresCitizenLink) : false,
+      assistanceAmountKey,
     };
 
     const officeModule = await client.officeModule.update({

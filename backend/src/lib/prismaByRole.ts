@@ -9,11 +9,15 @@ import { env } from '../env';
 // values (everything except app_service, which is auth-subsystem only).
 const clients = new Map<StaffRole, PrismaClient>();
 
+// A 'viewer' has no Postgres role of its own. The only routes it reaches are
+// the read-only, counts-only ones listed in middleware/auth.ts, which were
+// written for admin, so it reads through the admin connection.
 export function getPrismaForRole(role: StaffRole): PrismaClient {
-  let client = clients.get(role);
+  const dbRole = role === 'viewer' ? 'admin' : role;
+  let client = clients.get(dbRole);
   if (!client) {
-    client = new PrismaClient({ datasources: { db: { url: env.databaseUrlForRole(role) } } });
-    clients.set(role, client);
+    client = new PrismaClient({ datasources: { db: { url: env.databaseUrlForRole(dbRole) } } });
+    clients.set(dbRole, client);
   }
   return client;
 }

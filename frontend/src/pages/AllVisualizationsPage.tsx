@@ -14,6 +14,7 @@ import { useVisualizationFormData } from '@/hooks/useVisualizationFormData';
 import { ApiError, type DashboardWidget, type Office, type OfficeModule } from '@/lib/api';
 import { adminWidgetApi, officeWidgetApi } from '@/lib/widgetApi';
 import { officeAppearance } from '@/lib/officeTheme';
+import { useViewOnly } from '@/lib/viewOnly';
 
 const DIMENSION_LABEL: Record<string, string> = {
   barangay: 'barangay',
@@ -78,7 +79,9 @@ export function VisualizationBoard({
   const wapi = officeScope ? officeWidgetApi(officeScope.office.id) : adminWidgetApi;
   const { data: widgets, error, setError, reload } = useApiResource(wapi.list, 'Failed to load visualizations');
   const { offices, modulesByOffice, barangays } = useVisualizationFormData(officeScope);
-  const canEdit = (w: DashboardWidget) => (officeScope ? w.editable === true : true);
+  // A view-only account opens charts and their history, nothing more.
+  const viewOnly = useViewOnly();
+  const canEdit = (w: DashboardWidget) => !viewOnly && (officeScope ? w.editable === true : true);
   const ownerName = (w: DashboardWidget) => (w.officeId ? offices.find((o) => o.id === w.officeId)?.name : undefined);
   const [officeFilter, setOfficeFilter] = useState<string>(lockedOffice ?? initialOffice ?? 'all');
   const [dashboardOnly, setDashboardOnly] = useState(false);
@@ -160,7 +163,7 @@ export function VisualizationBoard({
     : [];
 
   const toggleButton = (w: DashboardWidget) =>
-    !canEdit(w) ? (
+    viewOnly ? null : !canEdit(w) ? (
       <span className="ws-sample-tag" title="Made by the city administrator; view only">City chart</span>
     ) : w.showOnDashboard ? (
       <button
@@ -183,10 +186,12 @@ export function VisualizationBoard({
     <>
       <div className="ws-page-head">
         <div className="grow">{title ? <h1>{title}</h1> : <h2 style={{ margin: 0, fontSize: 20 }}>Charts</h2>}</div>
-        <button className="btn btn--primary btn--lg" onClick={() => setCreating(true)}>
-          <Icon name="plus" size={16} strokeWidth={2.4} />
-          Create visualization
-        </button>
+        {!viewOnly && (
+          <button className="btn btn--primary btn--lg" onClick={() => setCreating(true)}>
+            <Icon name="plus" size={16} strokeWidth={2.4} />
+            Create visualization
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -283,7 +288,7 @@ export function VisualizationBoard({
                 </>
               )}
             </div>
-            <ChartExplorer key={opened.id} widget={opened} base={wapi.chartBase(opened.id)} label={pickedLabel} onClear={() => setPickedLabel(null)} />
+            <ChartExplorer key={opened.id} widget={opened} base={wapi.chartBase(opened.id)} label={pickedLabel} onClear={() => setPickedLabel(null)} withRecords={!viewOnly} />
           </div>
         </Modal>
       )}

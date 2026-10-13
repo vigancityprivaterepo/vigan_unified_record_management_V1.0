@@ -8,7 +8,9 @@ import { sendError } from '../lib/errors';
 import { parsePage } from '../lib/pagination';
 import { getPrismaForRole } from '../lib/prismaByRole';
 import { requireRole } from '../middleware/auth';
+import { householdAssistance } from '../services/assistance';
 import { addHouseholdMember, designateHouseholdHead } from '../services/households';
+import { getHouseholdProfile, HOUSEHOLD_PROFILE_FIELDS, householdProfileSchema, saveHouseholdProfile } from '../services/householdProfile';
 import { categoriesForPersonKeys } from '../services/insights';
 import { ALIVE } from '../services/deathEffects';
 
@@ -344,11 +346,15 @@ adminDashboardRouter.get('/households', async (req, res) => {
   // the Citizens profile links to a household.
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   const isKey = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+  // Every word typed must be in the last or first name, so "Reyes, Maria"
+  // and "Maria Reyes" both find her.
   const nameMatch = (term: string) => ({
-    OR: [
-      { personLname: { contains: term, mode: 'insensitive' as const } },
-      { personFname: { contains: term, mode: 'insensitive' as const } },
-    ],
+    AND: term.split(/[\s,]+/).filter(Boolean).map((word) => ({
+      OR: [
+        { personLname: { contains: word, mode: 'insensitive' as const } },
+        { personFname: { contains: word, mode: 'insensitive' as const } },
+      ],
+    })),
   });
   const memberMatch = isKey ? { personKey: q } : q ? nameMatch(q) : undefined;
   const where = {
@@ -447,7 +453,33 @@ adminDashboardRouter.get('/households/:headPersonKey', async (req, res) => {
   res.json({
     head: { ...head, barangayName: head.barangay?.name ?? null, categories: categoriesByPerson.get(headPersonKey) ?? [] },
     members: members.map((m) => ({ ...m, categories: categoriesByPerson.get(m.personKey) ?? [] })),
+    // Living conditions (null until someone fills them in), and the
+    // questions and answers the form is drawn from.
+    profile: await getHouseholdProfile(client, headPersonKey),
+    // What the household has received from programs marked as assistance.
+    assistance: await householdAssistance(client, headPersonKey),
+    profileFields: HOUSEHOLD_PROFILE_FIELDS.map((f) => ({ key: f.key, label: f.label, options: f.options.map(([value, label]) => ({ value, label })) })),
   });
+});
+
+// Saves the household's living conditions. Questions left out of the body
+// keep their answer; null clears one.
+adminDashboardRouter.put('/households/:headPersonKey/profile', async (req, res) => {
+  const parsed = householdProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'Invalid payload', parsed.error.flatten());
+    return;
+  }
+  const client = getPrismaForRole('admin');
+  const headPersonKey = req.params.headPersonKey;
+
+  const head = await client.citizen.findUnique({ where: { personKey: headPersonKey }, select: { personIsHead: true, isArchived: true } });
+  if (!head || !head.personIsHead || head.isArchived) {
+    sendError(res, 404, 'NOT_FOUND', 'No household with that head person_key');
+    return;
+  }
+
+  res.json(await saveHouseholdProfile(client, headPersonKey, parsed.data, req.session.userId!, 'admin'));
 });
 
 const createHouseholdSchema = z.object({ headPersonKey: z.string().uuid() });
@@ -579,6 +611,8 @@ adminDashboardRouter.delete('/households/:headPersonKey', async (req, res) => {
     data: { personIsHead: false, updatedBy: actorUserId },
     select: { personKey: true },
   });
+  // No household left for the living conditions to describe.
+  await client.householdProfile.deleteMany({ where: { headPersonKey } });
   await insertAuditLog(client, {
     tableName: 'Citizen',
     recordId: headPersonKey,

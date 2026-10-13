@@ -18,7 +18,7 @@
   --ws-rail:       oklch(0.968 0.03 var(--hue));
   --bg-body: #F4F5F7;
   --t-base: #1B2230;
-  --t-muted: #5B6474; /* 4.5:1 on white -- was #64748B */
+  --t-muted: #5B6474 ; /* 4.5:1 on white   #5B6474 -- was #64748B */
 }
 :root[data-theme="dark"] .shell {
   --primary:       oklch(0.62 0.14 var(--hue));
@@ -194,6 +194,15 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .ws-hh-stats > div { background: var(--bg-muted); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
 .ws-hh-stats strong { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
 .ws-hh-stats span { font-size: 13px; color: var(--t-muted); }
+.ws-hh-profile { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
+.ws-hh-profile > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ws-hh-profile span { font-size: 13px; color: var(--t-muted); }
+.ws-hh-profile strong { font-weight: 600; font-size: 14px; }
+.ws-hh-profile strong.is-empty { font-weight: 400; color: var(--t-light); }
+.as-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.as-date { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--t-muted); }
+.as-date .input { width: auto; }
+.ws-hh-profile-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 16px; }
 .ws-tree-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; flex-wrap: wrap; }
 .ws-tree-row.is-branch { background: var(--bg-muted); }
 .ws-tree-elbow { position: absolute; left: -14px; top: -8px; width: 12px; height: 30px; border-left: 2px solid var(--border); border-bottom: 2px solid var(--border); border-bottom-left-radius: 8px; }
@@ -620,3 +629,38 @@ h1, h2, h3, .hero-title, .card-title, .brand-name, .ws-page-head h1 { font-famil
 .hz-empty > span { flex: 1 1 320px; }
 .hz-note { font-weight: 400; color: var(--t-muted); font-size: 13px; }
 .hz-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 16px; max-height: 360px; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
+
+/* ---------- Printed certification and ID card (PrintRecordDialog) ----------
+   Rendered inside .dl-print, so it shows only on paper. Sizes are physical:
+   the ID is a standard card (85.6 x 54 mm), front and back side by side. */
+.pr-sample { margin: 0 0 8pt; padding: 4pt 8pt; border: 1.5pt solid #000; font-weight: 700; text-align: center; letter-spacing: .08em; }
+.pr-cert { max-width: 165mm; margin: 0 auto; font: 12pt/1.6 var(--font-body); color: #000; }
+.pr-cert-head { display: flex; align-items: center; gap: 12pt; padding-bottom: 8pt; border-bottom: 1.5pt solid #000; }
+.pr-cert-head img { width: 22mm; height: 22mm; object-fit: contain; }
+.pr-cert-head div { flex: 1; text-align: center; line-height: 1.3; }
+.pr-cert-head strong { display: block; font-size: 13pt; }
+.pr-cert h1 { margin: 22pt 0 18pt; text-align: center; font: 600 18pt var(--font-display); letter-spacing: .12em; }
+.pr-cert p { margin: 0 0 12pt; text-align: justify; }
+.pr-cert .pr-indent { text-indent: 12mm; }
+.dl-print .pr-cert table { width: 100%; margin: 4pt 0 14pt; border-collapse: collapse; }
+.dl-print .pr-cert td { border: 0; padding: 1.5pt 0; vertical-align: top; }
+.dl-print .pr-cert td:first-child { width: 42%; color: #333; }
+.pr-sign { margin-top: 30pt; margin-left: 55%; text-align: center; line-height: 1.3; }
+.pr-sign-line { border-top: 0.75pt solid #000; padding-top: 3pt; font-weight: 600; min-height: 14pt; }
+.pr-foot { margin-top: 26pt; font-size: 9pt; color: #333; }
+.pr-cards { display: flex; gap: 8mm; flex-wrap: wrap; }
+.pr-card { box-sizing: border-box; width: 85.6mm; height: 54mm; padding: 2.5mm 3mm; border: 0.75pt solid #000; border-radius: 3mm; font: 7pt/1.25 var(--font-body); color: #000; overflow: hidden; break-inside: avoid; position: relative; }
+.pr-card-head { display: flex; align-items: center; gap: 2mm; padding-bottom: 1mm; border-bottom: 0.75pt solid #000; }
+.pr-card-head img { width: 9mm; height: 9mm; object-fit: contain; }
+.pr-card-head div { flex: 1; text-align: center; font-size: 6pt; line-height: 1.2; }
+.pr-card-head strong { display: block; font-size: 8.5pt; letter-spacing: .04em; }
+.pr-card-body { display: flex; gap: 2.5mm; margin-top: 1.5mm; }
+.pr-card-photo { flex: none; width: 20mm; height: 24mm; border: 0.75pt solid #000; display: grid; place-items: center; font-size: 6pt; color: #555; }
+.pr-card-name { font-size: 9.5pt; font-weight: 700; line-height: 1.15; }
+.pr-card dl { margin: 1mm 0 0; display: grid; grid-template-columns: auto 1fr; gap: 0 2mm; }
+.pr-card dt { color: #444; }
+.pr-card dd { margin: 0; font-weight: 600; }
+.pr-card-sig { position: absolute; left: 3mm; right: 3mm; bottom: 2mm; display: flex; gap: 4mm; font-size: 6pt; text-align: center; }
+.pr-card-sig span { flex: 1; border-top: 0.75pt solid #000; padding-top: 0.5mm; }
+.pr-card-back p { margin: 0 0 1.5mm; }
+.pr-card-stamp { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22pt; font-weight: 700; color: rgba(0, 0, 0, 0.14); transform: rotate(-18deg); pointer-events: none; }

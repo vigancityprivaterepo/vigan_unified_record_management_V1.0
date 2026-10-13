@@ -14,7 +14,7 @@ import { makeDocumentObjectKey } from '../lib/sanitizeFilename';
 import { uppercaseFreeText, uppercaseStrings } from '../lib/textNormalize';
 import { requireOfficeAccess } from '../middleware/auth';
 import { allModuleRecords, listModuleRecords, parseStatus, type RecordStatus } from '../services/officeRecordList';
-import { applyDeath, undoDeath } from '../services/deathEffects';
+import { applyDeath, DEATH_SLUG, undoDeath } from '../services/deathEffects';
 import { parseIntake, submitIntake } from '../services/intakeSubmission';
 
 // The staff-facing side of every office -- CSWD/Agriculture/Civil Registry
@@ -452,6 +452,79 @@ officeRouter.get(
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(doc.body);
+  }),
+);
+
+// What an office prints for a registered person: a certification that they
+// are in the program, or the program's ID card. Returns what the sheet needs
+// and writes the audit entry, so every printed certificate or card is on
+// record with who printed it. Refused for a record with no registry link, an
+// archived record, and a person with a death record.
+const printSchema = z.object({ kind: z.enum(['certificate', 'id_card']) });
+
+officeRouter.post(
+  '/:officeId/modules/:moduleId/records/:recordId/print',
+  requireOfficeAccess,
+  asyncHandler(async (req, res) => {
+    const parsed = printSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, 400, 'VALIDATION_ERROR', 'Choose what to print', parsed.error.flatten());
+      return;
+    }
+    const client = getPrismaForRole(req.session.role!);
+    const officeModule = await requireModuleInOffice(client, req.params.officeId, req.params.moduleId);
+    if (!officeModule) {
+      sendError(res, 404, 'NOT_FOUND', 'No such program');
+      return;
+    }
+    const record = await client.officeRecord.findUnique({
+      where: { id: req.params.recordId },
+      select: {
+        id: true, moduleId: true, isArchived: true, data: true, createdAt: true,
+        citizen: {
+          select: {
+            personKey: true, personLname: true, personFname: true, personMname: true, personBdate: true, personSex: true, personCivilStatus: true,
+            personStreet: true, isArchived: true, barangay: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!record || record.moduleId !== officeModule.id || record.isArchived) {
+      sendError(res, 404, 'NOT_FOUND', 'No such record');
+      return;
+    }
+    if (!record.citizen || record.citizen.isArchived) {
+      sendError(res, 409, 'NOT_LINKED', 'This record is not linked to a citizen in the registry, so nothing can be certified from it');
+      return;
+    }
+    const death = await client.officeRecord.findFirst({ where: { personKey: record.citizen.personKey, isArchived: false, module: { slug: DEATH_SLUG } }, select: { id: true } });
+    if (death && officeModule.slug !== DEATH_SLUG) {
+      sendError(res, 409, 'DECEASED', 'This person has a death record with Civil Registry');
+      return;
+    }
+    const [office, fields] = await Promise.all([
+      client.office.findUnique({ where: { id: officeModule.officeId }, select: { name: true, shortName: true } }),
+      client.officeFormField.findMany({ where: { moduleId: officeModule.id, NOT: { fieldType: 'FILE' } }, select: { key: true, label: true, fieldType: true }, orderBy: { sortOrder: 'asc' } }),
+    ]);
+    const { _sample, _effects, _importBatch, ...values } = (record.data ?? {}) as Record<string, unknown>;
+    void _effects; void _importBatch;
+    const c = record.citizen;
+    await insertAuditLog(client, {
+      tableName: 'OfficeRecord', recordId: record.id, action: 'read', actorUserId: req.session.userId, actorRole: req.session.role,
+      changedFields: { event: 'printed', kind: parsed.data.kind, moduleId: officeModule.id, personKeys: [c.personKey] },
+    });
+    res.json({
+      kind: parsed.data.kind,
+      office: { name: office?.name ?? '', shortName: office?.shortName ?? null },
+      program: { name: officeModule.name, slug: officeModule.slug },
+      record: { id: record.id, addedOn: record.createdAt.toISOString().slice(0, 10), sample: _sample === true || _sample === 'true', values },
+      fields,
+      person: {
+        lname: c.personLname, fname: c.personFname, mname: c.personMname, bdate: c.personBdate ? c.personBdate.toISOString().slice(0, 10) : null,
+        sex: c.personSex, civilStatus: c.personCivilStatus, street: c.personStreet, barangay: c.barangay?.name ?? null,
+      },
+      printedBy: req.session.fullName ?? req.session.username ?? null,
+    });
   }),
 );
 

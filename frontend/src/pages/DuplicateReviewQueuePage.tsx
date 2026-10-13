@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RegistryDuplicates } from '@/components/RegistryDuplicates';
 import { api, ApiError, type ReviewQueueItem } from '@/lib/api';
 
 export function DuplicateReviewQueuePage() {
@@ -61,6 +62,10 @@ export function DuplicateReviewQueuePage() {
         </div>
       )}
 
+      <div>
+        <h2 className="card-title">Registrations waiting for a decision</h2>
+        <p className="card-desc">New entries whose name and birthdate were close to someone already in the registry.</p>
+      </div>
       {items === null && <span className="spinner" />}
       {items?.length === 0 && <p style={{ color: 'var(--t-muted)', fontSize: 13 }}>Nothing pending review.</p>}
 
@@ -122,6 +127,8 @@ export function DuplicateReviewQueuePage() {
           </div>
         </div>
       ))}
+
+      <RegistryDuplicates />
     </div>
   );
 }

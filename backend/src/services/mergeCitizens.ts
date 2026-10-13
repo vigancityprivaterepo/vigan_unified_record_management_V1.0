@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { insertAuditLog } from '../lib/auditLog';
+import { moveHouseholdProfile } from './householdProfile';
 
 export type MergeResult = {
   winningKey: string;
@@ -10,7 +11,8 @@ export type MergeResult = {
 // Confirms "same person" for two Citizen rows that may each already have
 // their own satellite data. Reassigns every satellite FK (and any household
 // person_parent_key/person_sub_parent_key references) from the losing key
-// to the winning key, archives the losing row (never hard-deletes -- it may
+// to the winning key, gives the winner the details and the household place
+// it lacks from the losing row, archives the losing row (never hard-deletes -- it may
 // own Birth/Death records under RA 9470 retention), and logs the merge with
 // both original keys.
 //
@@ -20,6 +22,12 @@ export type MergeResult = {
 // the queue item, so a crash partway through can't orphan a record or leave
 // the queue item stuck. Standalone callers (tests) open their own
 // `prisma.$transaction()` and pass the `tx` in.
+const FILLABLE = [
+  'personMname', 'personStreet', 'personBrgyCode', 'personSex', 'personGender', 'personBdate', 'personCivilStatus', 'personReligion',
+  'personEducLevel', 'personEducCourse', 'personOccupation', 'personOccupationIndustry', 'personOccupationBusName', 'personOccupationBusAddress',
+  'personSssEnc', 'personGsisEnc', 'personPhilhealthEnc',
+] as const;
+
 export async function mergeCitizens(
   tx: Prisma.TransactionClient,
   winningKey: string,
@@ -50,7 +58,7 @@ export async function mergeCitizens(
   // Household references: anyone pointing at the losing row as their
   // household head/sub-head needs to follow the merge too.
   const parentRefs = await tx.citizen.updateMany({
-    where: { personParentKey: losingKey },
+    where: { personParentKey: losingKey, personKey: { not: winningKey } },
     data: { personParentKey: winningKey },
   });
   reassigned.CitizenParentRef = parentRefs.count;
@@ -60,6 +68,25 @@ export async function mergeCitizens(
     data: { personSubParentKey: winningKey },
   });
   reassigned.CitizenSubParentRef = subParentRefs.count;
+
+  // The winner keeps what it has. What it lacks comes from the losing row:
+  // empty details, and its place in a household when the winner has none
+  // (or was itself listed under the losing row).
+  const blank = (value: unknown) => value === null || (typeof value === 'string' && value.trim() === '');
+  const details = Object.fromEntries(FILLABLE.filter((key) => blank(winner[key]) && !blank(loser[key])).map((key) => [key, loser[key]]));
+  const underLoser = winner.personParentKey === losingKey;
+  const noPlace = !winner.personIsHead && (!winner.personParentKey || underLoser);
+  const place = !noPlace ? {}
+    : loser.personIsHead ? { personIsHead: true, personParentKey: null, personSubParentKey: null, personRelationToHead: null }
+    : loser.personParentKey && loser.personParentKey !== winningKey ? { personParentKey: loser.personParentKey, personSubParentKey: loser.personSubParentKey === winningKey ? null : loser.personSubParentKey, personRelationToHead: loser.personRelationToHead }
+    : underLoser ? { personParentKey: null, personSubParentKey: null, personRelationToHead: null }
+    : {};
+  if (Object.keys(details).length > 0 || Object.keys(place).length > 0) {
+    await tx.citizen.update({ where: { personKey: winningKey }, data: { ...details, ...place, updatedBy: actorUserId }, select: { personKey: true } });
+  }
+
+  // The losing row's household living conditions, unless the winner has its own.
+  await moveHouseholdProfile(tx, losingKey, winningKey, actorUserId);
 
   await tx.citizen.update({
     where: { personKey: losingKey },

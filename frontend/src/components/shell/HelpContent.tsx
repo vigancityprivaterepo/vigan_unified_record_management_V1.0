@@ -14,6 +14,7 @@ const OFFICE_BASE: Item[] = [
   ['Remove a mistake', 'Use the Archive button on the record and give a reason. Archived records stay under the Archived filter, where Restore brings them back.'],
   ['Import from a spreadsheet', 'On Records, choose Import and pick a CSV file. Match its columns to the form, then Check rows: nothing is saved until you import. Rows with problems are skipped and can be downloaded to fix.'],
   ['Charts', 'Build charts from your office’s programs on Charts. Pin to Home shows a chart on your Home page. Open a chart and click a bar, slice or point to list the records it counts. History shows the same numbers month by month, and Data used shows what each program collects and how completely it is filled in. Opening or exporting the records is recorded in the audit log.'],
+  ['Print a certificate or ID', 'On Records, the printer button on a person’s row prints a certification that they are registered in the program, or the program’s ID card where the program records an ID number. Type who signs it once; it is remembered on that computer. Not offered for a record that is not linked to the registry, and refused for a person with a death record. Each printing is recorded in the audit log.'],
   ['Report', 'On Records, Report counts a program’s registrations for any period by sex, age group, barangay and month. Print it or export it as CSV.'],
 ];
 
@@ -26,18 +27,30 @@ const ADMIN_HELP: Item[] = [
   ['Overview', 'Which barangays the city’s programs reach, entries per month by office, and citizens in more than one program. Click a barangay to filter the page. Export masterlist downloads every citizen.'],
   ['Visualizations', 'Build charts from any office’s programs. Add to dashboard shows a chart on the dashboard. Open a chart and click a bar, slice or point to list the records it counts. History shows the same numbers month by month, and Data used shows what each program collects and how completely it is filled in. Opening or exporting the records is recorded in the audit log.'],
   ['Insights', 'Charts across all offices: program combinations, barangay ranking, underserved barangays, households by number of programs, registrations over time, and what each office must fix in its data. Click a bar or a point to filter the page.'],
-  ['Citizens and Households', 'Look up a person or a household. A citizen’s profile shows their records in every office, and under Privacy, who viewed or changed the record. When Civil Registry records a death, the person leaves their household (the spouse, or else the oldest adult, becomes head if they headed it), is taken off every list that has a “Deceased still on the list” rule in Program gaps, and no longer shows in Citizens. The death record stays in the Death program; archiving it undoes the changes.'],
+  ['Citizens and Households', 'Look up a person or a household. A citizen’s profile shows their records in every office, and under Privacy, who viewed or changed the record. When Civil Registry records a death, the person leaves their household (the spouse, or else the oldest adult, becomes head if they headed it), is taken off every list that has a “Deceased still on the list” rule in Program gaps, and no longer shows in Citizens. The death record stays in the Death program; archiving it undoes the changes. A household also has Living conditions (water, toilet, electricity, house and lot, internet): open the household and choose Record or Edit.'],
   ['Program gaps', 'People who qualify for a program but are not in it, and lists that need cleanup. Manage rules adds, edits or switches off a rule. Each office sees the rules for its own programs. On a Not yet served list, set what came of contacting each person (will come in, does not want it, could not be found, no longer lives here), show only who is not yet contacted, and print the list for a barangay to bring along. A person leaves the list once they are registered.'],
+  ['Assistance', 'What households received from every office in a period: households assisted, assisted four or more times, and not assisted at all, by program and by barangay. Click a count or a barangay to list the households. A program is counted once “Counts as assistance” is ticked in its settings (Offices, Manage, the program); each of its records is then one release, valued by the amount field chosen there. A household’s page lists what it has received. Where the server is connected to the AICS system, assistance released there is pulled in on its own every few minutes (Pull now does it at once): each release is matched to the citizen by name and birthdate, a new citizen is added when there is none, and a name that is only close goes to Duplicate review. Opening and exporting the list is recorded in the audit log.'],
   ['Disaster lists', 'Residents who may need help to evacuate, by barangay and household, and who has received relief for an event. CDRRMO records relief from its own Disaster lists.'],
   ['Business renewals', 'Businesses whose latest permit is older than this year, from BPLO’s Business Permits records.'],
   ['Heritage zone', 'Businesses, building and occupancy permits and zoning clearances inside the barangays you mark as the heritage zone. Choose barangays sets which ones count.'],
-  ['Duplicate review', 'Registrations whose name and birthdate were close to an existing citizen wait here until you approve (same person) or reject (different person).'],
+  ['Duplicate review', 'Registrations whose name and birthdate were close to an existing citizen wait here until you approve (same person) or reject (different person). Below them, citizens already in the registry who look like the same person: keep one, or mark them as different people.'],
   ['Office workspaces', 'Open any office’s records exactly as its staff see them, read-only.'],
   ['Offices', 'Create offices. Manage opens an office’s details, its programs and forms, and its color and icon.'],
   ['Staff accounts', 'Add staff accounts, reset passwords, and deactivate accounts that are no longer used. Deactivating keeps the person’s name in the audit log.'],
   ['Matching settings', 'How close two registrations must be before they are treated as the same citizen.'],
   ['Privacy', 'For the Data Protection Officer: who viewed and exported citizens’ data each month, and citizens’ requests to see, correct or delete their data.'],
   ['Exports', 'Export masterlist (Overview) and each program’s list are CSV files with personal data. Every export is recorded in the audit log.'],
+];
+
+// A view-only account (the mayor, other city officials).
+const VIEWER_HELP: Item[] = [
+  ['What this account sees', 'The city as counts and charts. It does not show names or records, cannot export, and cannot change anything. For a list of people, ask the office concerned or the administrator.'],
+  ['Overview', 'Which barangays the city\u2019s programs reach, entries per month by office, citizens in more than one program, and the follow-up counts under Needs attention. Click a barangay to filter the page.'],
+  ['Visualizations', 'Charts built from every office\u2019s programs. Pick an office, or Cross-office for charts that combine several. Open a chart and click a bar, slice or point: History shows the same numbers month by month, and Data used shows what each program collects.'],
+  ['Insights', 'Which barangays are least reached, households by number of programs, whether programs are keeping up, and what each office must fix in its data.'],
+  ['Program gaps', 'How many people qualify for a program but are not in it yet, how many of them have been contacted, and lists that need cleanup.'],
+  ['Assistance', 'How many households received help from any office in a period, how many were helped four or more times, how many not at all, and the value released by program.'],
+  ['Sample data', 'Anything tagged Sample is example data, not real records.'],
 ];
 
 export function HelpContent({ role, lists, modules = [] }: {
@@ -48,7 +61,9 @@ export function HelpContent({ role, lists, modules = [] }: {
 }) {
   const items = role === 'admin'
     ? ADMIN_HELP
-    : [
+    : role === 'viewer'
+      ? VIEWER_HELP
+      : [
         ...OFFICE_BASE,
         ...(modules.some((m) => m.collectPersonInfo && !m.requiresCitizenLink) ? [OFFICE_LINK] : []),
         ...(lists?.programGaps ? [OFFICE_GAPS] : []),

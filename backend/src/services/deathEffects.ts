@@ -1,12 +1,14 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { insertAuditLog } from '../lib/auditLog';
+import { moveHouseholdProfile } from './householdProfile';
 
 // What happens to the rest of the registry when Civil Registry records a
 // death (a record in a module with slug 'death', linked to a citizen):
 //
 //   1. The person leaves their household. If they headed it, the surviving
 //      spouse becomes head, or else the oldest adult, or else the oldest
-//      member, and the other members move under the new head.
+//      member, and the other members move under the new head. The
+//      household's living conditions (householdProfile.ts) go to the new head.
 //   2. A surviving spouse marked Married becomes Widowed.
 //   3. The person is taken off the program lists the city has said to clean
 //      up: the target program of every active "Deceased still on ... list"
@@ -106,6 +108,7 @@ export async function applyDeath(client: PrismaClient, deathRecordId: string, ac
       if (successor) {
         await tx.citizen.update({ where: { personKey: successor.personKey }, data: { personIsHead: true, personParentKey: null, personRelationToHead: 'Head', updatedBy: actor.userId }, select: { personKey: true } });
         await tx.citizen.updateMany({ where: { personParentKey: personKey, personKey: { not: successor.personKey } }, data: { personParentKey: successor.personKey, updatedBy: actor.userId } });
+        await moveHouseholdProfile(tx, personKey, successor.personKey, actor.userId);
         await audit('Citizen', successor.personKey, 'update', { personIsHead: true, householdHeadBefore: personKey });
         if (isSpouse(successor.personRelationToHead)) await widow(successor);
         household = { headKey: successor.personKey, wasHead: true, relation: person.personRelationToHead, subParentKey: null };

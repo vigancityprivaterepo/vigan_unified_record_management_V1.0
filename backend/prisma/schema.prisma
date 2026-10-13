@@ -79,6 +79,9 @@ model Citizen {
 
   officeRecords OfficeRecord[]
   outreach      OutreachContact[]
+  distinctFromA CitizenDistinctPair[] @relation("DistinctPairA")
+  distinctFromB CitizenDistinctPair[] @relation("DistinctPairB")
+  householdProfile HouseholdProfile?
 
   // Drives resolvePerson()'s exact-match step (Phase 2).
   @@index([personLname, personFname, personBdate])
@@ -86,6 +89,38 @@ model Citizen {
   @@index([personParentKey])
   @@index([personBrgyCode])
   @@map("Citizen")
+}
+
+// --- Household living conditions ----------------------------------------------
+// A household is still a head Citizen plus the citizens pointing at it; this
+// holds what is true of the household as a whole (water, toilet, electricity,
+// housing), the items CBMS records per household. One row per household,
+// attached to its head, and moved when the head changes
+// (services/householdProfile.ts). Answers are codes from the lists in that
+// file. source is 'office' (typed in here) or 'cbms' (loaded from a CBMS
+// round); asOf is the date the answers describe.
+model HouseholdProfile {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  headPersonKey  String @unique @db.Uuid @map("head_person_key")
+  waterSource    String? @map("water_source")
+  drinkingWater  String? @map("drinking_water")
+  toiletFacility String? @map("toilet_facility")
+  electricity    String?
+  tenureStatus   String? @map("tenure_status")
+  housingType    String? @map("housing_type")
+  roofMaterial   String? @map("roof_material")
+  wallMaterial   String? @map("wall_material")
+  internetAccess String? @map("internet_access")
+  source         String   @default("office")
+  asOf           DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date @map("as_of")
+  createdAt      DateTime @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt      DateTime @updatedAt @db.Timestamptz() @map("updated_at")
+  createdBy      String?  @db.Uuid @map("created_by")
+  updatedBy      String?  @db.Uuid @map("updated_by")
+
+  head Citizen @relation(fields: [headPersonKey], references: [personKey], onDelete: Cascade)
+
+  @@map("household_profile")
 }
 
 // --- Offices, modules, form fields, records ---------------------------------
@@ -171,6 +206,13 @@ model OfficeModule {
   // declining to collect one. The four collect* flags above only mean
   // anything when this is true.
   collectPersonInfo   Boolean @default(true) @map("collect_person_info")
+
+  // Each record of this program is assistance given to a person (AICS, farm
+  // inputs, relief): the Assistance page adds them up per household across
+  // offices (services/assistance.ts). assistanceAmountKey is the key of the
+  // NUMBER field holding the value in pesos, null if the program has none.
+  givesAssistance     Boolean @default(false) @map("gives_assistance")
+  assistanceAmountKey String? @map("assistance_amount_key")
 
   createdAt DateTime @default(now()) @db.Timestamptz() @map("created_at")
 
@@ -311,6 +353,10 @@ model DashboardWidgetSource {
 enum StaffRole {
   admin
   office_staff
+  // City officials (mayor, councilors): view only, counts and charts, no
+  // lists of people. Unlike the two above it is not a Postgres login role;
+  // middleware/auth.ts lists the routes it may read.
+  viewer
 }
 
 // connect-pg-simple's session-store table (raw-SQL, Phase 3 migration) --
@@ -476,6 +522,23 @@ model OutreachContact {
   @@unique([ruleId, personKey])
   @@index([personKey])
   @@map("outreach_contact")
+}
+
+// Two citizens the administrator said are different people, so the
+// possible-duplicates list stops showing them (services/duplicateCitizens.ts,
+// raw SQL). personA is always the smaller key.
+model CitizenDistinctPair {
+  personA   String   @map("person_a") @db.Uuid
+  personB   String   @map("person_b") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy String?  @map("created_by") @db.Uuid
+
+  a Citizen @relation("DistinctPairA", fields: [personA], references: [personKey], onDelete: Cascade)
+  b Citizen @relation("DistinctPairB", fields: [personB], references: [personKey], onDelete: Cascade)
+
+  @@id([personA, personB])
+  @@index([personB])
+  @@map("citizen_distinct_pair")
 }
 
 // --- Data subject requests (RA 10173) -------------------------------------------

@@ -15,7 +15,7 @@ import { requireRole } from '../middleware/auth';
 export const adminUsersRouter = Router();
 adminUsersRouter.use(requireRole('admin'));
 
-const STAFF_ROLES = ['admin', 'office_staff'] as const;
+const STAFF_ROLES = ['admin', 'office_staff', 'viewer'] as const;
 
 const STAFF_LIST_SELECT = {
   id: true,
@@ -80,6 +80,7 @@ adminUsersRouter.post(
     }
     const { username, fullName, role } = parsed.data;
     const position = parsed.data.position || null;
+    // Only office staff belong to an office; admin and viewer see the whole city.
     const officeId = role === 'office_staff' ? parsed.data.officeId : undefined;
     const client = getPrismaForRole('admin');
 
@@ -162,8 +163,8 @@ adminUsersRouter.patch(
     // it -- an office_staff moved to admin over admin's whole-system scope
     // shouldn't be left pointing at their old office.
     let officeId: string | null | undefined = parsed.data.officeId;
-    if (officeId === undefined) officeId = nextRole === 'admin' ? null : existing.officeId;
-    if (nextRole === 'admin') officeId = null;
+    if (officeId === undefined) officeId = nextRole === 'office_staff' ? existing.officeId : null;
+    if (nextRole !== 'office_staff') officeId = null;
     if (nextRole === 'office_staff' && !officeId) {
       sendError(res, 400, 'VALIDATION_ERROR', 'officeId is required when role is office_staff', {
         officeId: ['Required for office_staff'],

@@ -5,7 +5,10 @@
 // Everything this script adds is sample data, not real citizens:
 //   - every record carries `_sample: true`, so the app labels it "Sample";
 //   - every row is created by DEMO_ACTOR, which is how --remove finds it.
-// It never edits or deletes rows it did not create.
+// It never edits or deletes rows it did not create, with one exception: it
+// switches on "Counts as assistance" for the programs that give help to
+// people (see markAssistancePrograms), so the Assistance page has something
+// to show. That is a setting; switch it off again in Offices if not wanted.
 //
 // Usage (DATABASE_URL must be the migration-owner connection, same as the
 // other scripts/*.ts files):
@@ -13,6 +16,7 @@
 //   npx tsx --env-file=.env scripts/seedCityDemo.ts --remove   take all of it out again
 //   npx tsx --env-file=.env scripts/seedCityDemo.ts --reset    remove, then add
 //   npx tsx --env-file=.env scripts/seedCityDemo.ts --outreach add only the sample outreach results
+//   npx tsx --env-file=.env scripts/seedCityDemo.ts --assistance only mark the assistance programs
 import { randomUUID } from 'node:crypto';
 import { Prisma, type OfficeFieldType } from '@prisma/client';
 import { prisma } from '../src/lib/prisma';
@@ -288,6 +292,31 @@ async function addOutreach(): Promise<void> {
       ON CONFLICT (rule_id, person_key) DO NOTHING`);
   }
   console.log(`  ${added} sample outreach results on ${rules.length} "not yet served" lists`);
+}
+
+// --- Assistance programs ---------------------------------------------------------
+// The programs whose records are help given to a person, and the field that
+// holds its value in pesos (null: the program records no amount). Marked as
+// "Counts as assistance" so the Assistance page adds them up per household
+// (services/assistance.ts). A program an administrator already marked is left as is.
+const ASSISTANCE_PROGRAMS: Record<string, string | null> = {
+  aics: 'amount_granted_php',
+  farm_assistance: 'estimated_value_php',
+  relief_distribution: null,
+  scholars: 'grant_amount_php',
+  livelihood_beneficiaries: 'grant_loan_amount_php',
+};
+
+async function markAssistancePrograms(): Promise<void> {
+  const marked: string[] = [];
+  for (const [slug, amountKey] of Object.entries(ASSISTANCE_PROGRAMS)) {
+    for (const mod of await prisma.officeModule.findMany({ where: { slug, givesAssistance: false, collectPersonInfo: true }, select: { id: true, name: true } })) {
+      const hasAmount = amountKey !== null && (await prisma.officeFormField.count({ where: { moduleId: mod.id, key: amountKey, fieldType: 'NUMBER' } })) > 0;
+      await prisma.officeModule.update({ where: { id: mod.id }, data: { givesAssistance: true, assistanceAmountKey: hasAmount ? amountKey : null } });
+      marked.push(mod.name);
+    }
+  }
+  console.log(marked.length ? `  counted as assistance: ${marked.join(', ')}` : '  (assistance programs were already marked, or are not set up here)');
 }
 
 // The sample deaths are written straight to the table, so run what the Death
@@ -1039,6 +1068,10 @@ async function main() {
     await addOutreach();
     return;
   }
+  if (process.argv.includes('--assistance')) {
+    await markAssistancePrograms();
+    return;
+  }
   if (mode === 'add' && existing > 0) {
     console.log(`The demo data is already here (${existing} sample citizens). Use --reset to rebuild it or --remove to take it out.`);
     return;
@@ -1049,6 +1082,7 @@ async function main() {
     await addDemo();
     await addOutreach();
     await applyDeaths();
+    await markAssistancePrograms();
     console.log('Done. Every record added is tagged as sample data.');
   }
 }

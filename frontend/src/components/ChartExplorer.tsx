@@ -38,8 +38,12 @@ function show(value: unknown, key: string): string {
 
 type Tab = 'records' | 'history' | 'profile';
 
-export function ChartExplorer({ widget, base, label, onClear }: { widget: DashboardWidget; base: string; label: string | null; onClear: () => void }) {
-  const [tab, setTab] = useState<Tab>('records');
+// withRecords false: a view-only account, which may see the numbers but not
+// the records (names) behind them.
+export function ChartExplorer({ widget, base, label, onClear, withRecords = true }: {
+  widget: DashboardWidget; base: string; label: string | null; onClear: () => void; withRecords?: boolean;
+}) {
+  const [tab, setTab] = useState<Tab>(withRecords ? 'records' : 'history');
   const [moduleId, setModuleId] = useState(widget.sourceModules[0]?.id ?? '');
   const groupName = widget.groupBy.map(dimensionName).join(' / ');
 
@@ -47,7 +51,7 @@ export function ChartExplorer({ widget, base, label, onClear }: { widget: Dashbo
     <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }} aria-label="Data behind this chart">
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="ws-seg" role="tablist" aria-label="What to look at">
-          {([['records', 'Records'], ['history', 'History'], ['profile', 'Data used']] as const).map(([key, name]) => (
+          {([['records', 'Records'], ['history', 'History'], ['profile', 'Data used']] as const).filter(([key]) => withRecords || key !== 'records').map(([key, name]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => setTab(key)}>{name}</button>
           ))}
         </div>

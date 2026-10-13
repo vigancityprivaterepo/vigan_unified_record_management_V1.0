@@ -11,6 +11,7 @@ export type AdminTab =
   | 'citizens'
   | 'households'
   | 'gaps'
+  | 'assistance'
   | 'disaster'
   | 'renewals'
   | 'heritage'
@@ -32,6 +33,7 @@ const MAIN: Array<{ key: AdminTab; label: string; icon: string }> = [
   { key: 'citizens', label: 'Citizens', icon: 'users' },
   { key: 'households', label: 'Households', icon: 'home' },
   { key: 'gaps', label: 'Program gaps', icon: 'target' },
+  { key: 'assistance', label: 'Assistance', icon: 'heart' },
   { key: 'disaster', label: 'Disaster lists', icon: 'alert' },
   { key: 'renewals', label: 'Business renewals', icon: 'store' },
   { key: 'heritage', label: 'Heritage zone', icon: 'map' },
@@ -54,12 +56,14 @@ export const ADMIN_TAB_LABELS: Record<string, string> = {
 
 // The one place every office comes together -- a dark rail so it never
 // reads as just another office workspace.
-export function AdminSidebar({ activeTab, onSelect, offices, queueCount, footer }: {
+export function AdminSidebar({ activeTab, onSelect, offices, queueCount, footer, only }: {
   activeTab: AdminTab;
   onSelect: (tab: AdminTab) => void;
   offices: Office[];
   queueCount: number;
   footer: React.ReactNode;
+  // A view-only account: just these pages, and no Offices or Manage sections.
+  only?: AdminTab[];
 }) {
   const isActive = (key: AdminTab) =>
     activeTab === key ||
@@ -72,26 +76,26 @@ export function AdminSidebar({ activeTab, onSelect, offices, queueCount, footer 
         <div className="brand-logo"><img src={logoUrl} alt="City of Vigan seal" /></div>
         <div className="brand-text">
           <div className="brand-name">Vigan City Records</div>
-          <div className="brand-tag">Administration console</div>
+          <div className="brand-tag">{only ? 'City view (view only)' : 'Administration console'}</div>
         </div>
       </div>
 
       <nav className="nav-section">
-        {MAIN.map((i) => (
+        {MAIN.filter((i) => !only || only.includes(i.key)).map((i) => (
           <NavButton key={i.key} active={isActive(i.key)} icon={i.icon} label={i.label} badge={i.key === 'queue' ? queueCount : undefined} onClick={() => onSelect(i.key)} />
         ))}
 
-        <div className="nav-label">Offices</div>
-        <NavButton
+        {!only && <div className="nav-label">Offices</div>}
+        {!only && <NavButton
           active={activeTab === 'workspaces' || activeTab.startsWith('office:')}
           icon="grid"
           label="Office workspaces"
           count={offices.filter((o) => o.isActive).length}
           onClick={() => onSelect('workspaces')}
-        />
+        />}
 
-        <div className="nav-label">Manage</div>
-        {MANAGE.map((i) => <NavButton key={i.key} active={isActive(i.key)} icon={i.icon} label={i.label} onClick={() => onSelect(i.key)} />)}
+        {!only && <div className="nav-label">Manage</div>}
+        {!only && MANAGE.map((i) => <NavButton key={i.key} active={isActive(i.key)} icon={i.icon} label={i.label} onClick={() => onSelect(i.key)} />)}
       </nav>
 
       <div className="sidebar-footer">{footer}</div>

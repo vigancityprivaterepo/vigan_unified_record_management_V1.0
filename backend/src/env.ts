@@ -76,6 +76,18 @@ export const env = {
     return readSecret(`${prefix}_DB_PASSWORD_FILE`, `${prefix}_DB_PASSWORD`);
   },
 
+  // The connection to the AICS system (services/aicsBridge.ts): its
+  // Integration API address, e.g. http://aics-server:5101/api/integration/v1,
+  // and the key its administrator issued. Null (off) unless both are set.
+  get aicsBridge(): { url: string; key: string; intervalMinutes: number } | null {
+    const url = (process.env.AICS_BRIDGE_URL ?? '').trim().replace(/\/+$/, '');
+    const keyFile = process.env.AICS_BRIDGE_KEY_FILE;
+    const key = (keyFile ? fs.readFileSync(keyFile, 'utf-8') : process.env.AICS_BRIDGE_KEY ?? '').trim();
+    if (!url || !key) return null;
+    const minutes = Number(process.env.AICS_BRIDGE_INTERVAL_MINUTES ?? 15);
+    return { url, key, intervalMinutes: Number.isFinite(minutes) && minutes >= 1 ? minutes : 15 };
+  },
+
   // In Docker, built from DATABASE_HOST/PORT/NAME/USER + the DB_PASSWORD
   // secret. Locally (tests, host-run dev server), set DATABASE_URL directly
   // and it's used as-is.

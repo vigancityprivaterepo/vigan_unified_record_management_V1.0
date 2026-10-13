@@ -7,6 +7,8 @@ const DEFAULTS: Record<string, string> = {
   FUZZY_MATCH_BDATE_TOLERANCE_DAYS: '5',
   // Empty until the administrator marks the heritage-zone barangays.
   HERITAGE_ZONE_BARANGAYS: '',
+  // Where the pull from AICS left off (services/aicsBridge.ts).
+  AICS_BRIDGE_STATE: '',
 };
 
 export async function getSetting(key: string): Promise<string> {

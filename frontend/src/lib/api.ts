@@ -107,7 +107,7 @@ export type Paginated<T> = {
 
 // Every office -- CSWD/Agriculture/Civil Registry included, as of the
 // offices-as-modules unification -- shares the one office_staff role.
-export type StaffRole = 'admin' | 'office_staff';
+export type StaffRole = 'admin' | 'office_staff' | 'viewer';
 
 export type Session = { userId: string; username: string; fullName?: string; position?: string | null; role: StaffRole; officeId?: string };
 
@@ -149,6 +149,14 @@ export type PersonCore = {
   street?: string;
   brgyCode?: string;
 };
+
+// Citizens already in the registry who look like the same person: see
+// backend/src/services/duplicateCitizens.ts.
+export type DuplicateCitizen = {
+  personKey: string; lname: string; fname: string; mname: string | null; bdate: string | null; sex: string | null;
+  barangay: string | null; household: string | null; programs: string[]; createdAt: string;
+};
+export type DuplicatePair = { reason: 'same' | 'similar_name' | 'birthdate_typo' | 'no_birthdate'; a: DuplicateCitizen; b: DuplicateCitizen };
 
 export type ReviewQueueItem = {
   id: string;
@@ -259,9 +267,18 @@ export type HouseholdMember = {
   categories: PersonCategory[];
 };
 
+// Living conditions of a household (backend services/householdProfile.ts).
+// values holds one answer code per question key, null where not answered.
+export type HouseholdProfile = { values: Record<string, string | null>; source: 'office' | 'cbms'; asOf: string };
+export type HouseholdProfileField = { key: string; label: string; options: Array<{ value: string; label: string }> };
+
 export type HouseholdDetail = {
   head: HouseholdMember & { barangayName: string | null };
   members: HouseholdMember[];
+  profile: HouseholdProfile | null;
+  profileFields: HouseholdProfileField[];
+  // What the household has received from programs counted as assistance, newest first.
+  assistance: Array<{ recordId: string; on: string; program: string; office: string; recipient: string; amount: number | null }>;
 };
 
 export type DashboardSummary = {
@@ -374,6 +391,11 @@ export type OfficeModule = {
   collectStreet: boolean;
   collectBarangay: boolean;
   collectPersonInfo: boolean;
+  // Each record of this program is assistance given to a person: counted on
+  // the Assistance page. assistanceAmountKey is the NUMBER field holding the
+  // value in pesos. Sent by the admin program endpoints only.
+  givesAssistance?: boolean;
+  assistanceAmountKey?: string | null;
 };
 
 export type OfficeFieldType =
@@ -423,6 +445,18 @@ export type OfficeRecordListItem = {
     personBdate: string | null;
     barangay: { name: string } | null;
   } | null;
+};
+
+// A certification or ID card printed from one record (routes/office.ts).
+export type PrintKind = 'certificate' | 'id_card';
+export type PrintableRecord = {
+  kind: PrintKind;
+  office: { name: string; shortName: string | null };
+  program: { name: string; slug: string };
+  record: { id: string; addedOn: string; sample: boolean; values: Record<string, unknown> };
+  fields: Array<{ key: string; label: string; fieldType: string }>;
+  person: { lname: string; fname: string; mname: string | null; bdate: string | null; sex: string | null; civilStatus: string | null; street: string | null; barangay: string | null };
+  printedBy: string | null;
 };
 
 // --- Admin custom dashboard visualizations ----------------------------------
@@ -584,6 +618,34 @@ export type VulnerablePerson = {
   personKey: string; name: string; age: number | null; sex: string | null; street: string | null; barangay: string | null;
   householdKey: string; householdHead: string | null; needs: DisasterCategory[]; pregnancyNeedsCheck: boolean; evacuationCenter: string | null;
   reliefReceived: boolean | null;
+};
+
+// Assistance across offices: see backend/src/services/assistance.ts.
+export type AssistanceTimes = 'never' | 'once' | 'few' | 'many';
+export type AssistanceFilters = { from?: string; to?: string; barangayCode?: string; times?: AssistanceTimes };
+export type AssistanceSummary = {
+  from: string;
+  to: string;
+  programs: Array<{ moduleId: string; name: string; office: string; hasAmount: boolean; releases: number; recipients: number; value: number }>;
+  releases: number;
+  value: number;
+  releasesOutsideHouseholds: number;
+  households: { total: number; never: number; once: number; few: number; many: number };
+  byBarangay: Array<{ code: string | null; name: string | null; total: number; never: number; assisted: number }>;
+};
+export type AssistedHousehold = {
+  headKey: string; head: string; barangay: string | null; members: number;
+  releases: number; value: number; programs: string | null; lastOn: string | null;
+};
+
+// The connection to the AICS system: see backend/src/services/aicsBridge.ts.
+export type AicsBridgeStatus = {
+  configured: boolean;
+  running: boolean;
+  since: string | null;
+  lastRunAt: string | null;
+  lastError: string | null;
+  lastResult: { received: number; added: number; newCitizens: number; citizensFilledIn?: number; householdMembersAdded?: number; householdMembersToCheck?: number; householdMembersSkipped?: number; updated?: number; deathsRecorded?: number; programRecordsAdded?: number; sentToReview: number; withdrawn: number; alreadyHere: number; skippedNoBirthdate: number } | null;
 };
 
 // Business renewals (BPLO): see backend/src/services/businessRenewals.ts.
@@ -753,6 +815,10 @@ export const api = {
   cityInsights: () => request<CityInsights>('/admin/insights/questions'),
   officeTodo: (officeId: string) => request<TodoItem[]>(`/offices/${officeId}/todo`),
   officeLists: (officeId: string) => request<{ programGaps: number; disasterLists: boolean; businessRenewals: boolean }>(`/offices/${officeId}/lists`),
+  assistanceSummary: (f: AssistanceFilters) => request<AssistanceSummary>(`/admin/assistance${queryString({ from: f.from, to: f.to, barangayCode: f.barangayCode })}`),
+  assistanceList: (page: number, f: AssistanceFilters) => request<Paginated<AssistedHousehold>>(`/admin/assistance/list${queryString({ page, ...f })}`),
+  exportAssistance: (f: AssistanceFilters) => download(`/admin/assistance/list.csv${queryString({ ...f })}`, 'assistance-households.csv'),
+  aicsBridge: () => request<AicsBridgeStatus>('/admin/aics-bridge'),
   renewalSummary: (officeId?: string) => request<RenewalSummary>(`${listBase(officeId)}/business-renewals`),
   renewalList: (officeId: string | undefined, page: number, f: RenewalFilters) =>
     request<Paginated<RenewalBusiness>>(`${listBase(officeId)}/business-renewals/list${queryString({ page, ...f, lastYear: f.lastYear === undefined ? undefined : String(f.lastYear) })}`),
@@ -786,6 +852,9 @@ export const api = {
   // Soft-delete (sets isArchived) -- works for office_staff on their own
   // module and for admin on any module. `reason` is required and lands in
   // the audit log, not on the record itself.
+  // What the print sheet needs; the call itself is what gets audit-logged.
+  printRecord: (officeId: string, moduleId: string, recordId: string, kind: PrintKind) =>
+    request<PrintableRecord>(`/offices/${officeId}/modules/${moduleId}/records/${recordId}/print`, { method: 'POST', body: JSON.stringify({ kind }) }),
   archiveOfficeRecord: (officeId: string, moduleId: string, recordId: string, reason: string) =>
     request<void>(`/offices/${officeId}/modules/${moduleId}/records/${recordId}`, {
       method: 'DELETE',
@@ -830,6 +899,8 @@ export const api = {
       collectStreet?: boolean;
       collectBarangay?: boolean;
       collectPersonInfo?: boolean;
+      givesAssistance?: boolean;
+      assistanceAmountKey?: string | null;
     },
   ) =>
     request<OfficeModule>(`/admin/offices/${officeId}/modules/${moduleId}`, {
@@ -892,6 +963,11 @@ export const api = {
   getOfficeWidgetData: (officeId: string, id: string) => request<WidgetSeriesRow[]>(`/offices/${officeId}/widgets/${id}/data`),
 
   reviewQueue: () => request<ReviewQueueItem[]>('/admin/duplicate-review-queue'),
+  duplicateCitizens: (page?: number) => request<Paginated<DuplicatePair>>(`/admin/duplicate-citizens${queryString({ page })}`),
+  mergeCitizens: (keepPersonKey: string, otherPersonKey: string) =>
+    request<{ status: 'merged' }>('/admin/duplicate-citizens/merge', { method: 'POST', body: JSON.stringify({ keepPersonKey, otherPersonKey }) }),
+  markCitizensDistinct: (keepPersonKey: string, otherPersonKey: string) =>
+    request<void>('/admin/duplicate-citizens/distinct', { method: 'POST', body: JSON.stringify({ keepPersonKey, otherPersonKey }) }),
   approveReview: (id: string, winningPersonKey: string) =>
     request<{ status: 'approved'; winningPersonKey: string }>(`/admin/duplicate-review-queue/${id}/approve`, {
       method: 'POST',
@@ -925,6 +1001,8 @@ export const api = {
     ),
   removeHouseholdMember: (headPersonKey: string, personKey: string) =>
     request<void>(`/admin/households/${headPersonKey}/members/${personKey}`, { method: 'DELETE' }),
+  saveHouseholdProfile: (headPersonKey: string, values: Record<string, string | null>) =>
+    request<HouseholdProfile>(`/admin/households/${headPersonKey}/profile`, { method: 'PUT', body: JSON.stringify(values) }),
   disbandHousehold: (headPersonKey: string) =>
     request<void>(`/admin/households/${headPersonKey}`, { method: 'DELETE' }),
 

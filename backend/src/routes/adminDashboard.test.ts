@@ -163,6 +163,22 @@ describe('/admin/households', () => {
     expect(grandchildRow.personSubParentKey).toBe(child.personKey);
   });
 
+  it('finds a household by a full name typed either way round, for the head or a member', async () => {
+    const head = await prisma.citizen.create({
+      data: { personLname: 'Domingo', personFname: 'Ramon', personBdate: new Date('1955-01-01'), personIsHead: true },
+    });
+    await prisma.citizen.create({
+      data: { personLname: 'Dela Cruz', personFname: 'Elena', personBdate: new Date('1980-01-01'), personParentKey: head.personKey, personRelationToHead: 'Daughter' },
+    });
+    const agent = await loginAgent(app, 'admin.demo');
+    const found = async (q: string) => (await agent.get('/admin/households').query({ q })).body.items.map((h: { personKey: string }) => h.personKey);
+
+    for (const q of ['DOMINGO, RAMON', 'ramon domingo', 'Domingo', 'Dela Cruz, Elena', 'elena dela cruz']) {
+      expect(await found(q), q).toEqual([head.personKey]);
+    }
+    expect(await found('Domingo, Pedro')).toEqual([]);
+  });
+
   it('404s for a person_key that is not a household head', async () => {
     const notAHead = await prisma.citizen.create({
       data: { personLname: 'X', personFname: 'Y', personBdate: new Date('2000-01-01') },

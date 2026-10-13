@@ -6,6 +6,7 @@ import { LoadError } from '@/components/LoadError';
 import { Modal } from '@/components/Modal';
 import { OfficeMark } from '@/components/OfficeMark';
 import { Pagination } from '@/components/Pagination';
+import { useViewOnly } from '@/lib/viewOnly';
 import { api, ApiError, type GapPerson, type GapRuleInput, type GapRuleSummary, type OutreachFilter, type OutreachStatus, type Paginated } from '@/lib/api';
 
 type Program = { id: string; name: string; officeName: string };
@@ -24,6 +25,8 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
   const [barangayCode, setBarangayCode] = useState('');
   const [openRule, setOpenRule] = useState<GapRuleSummary | null>(null);
   const [managing, setManaging] = useState(false);
+  // A view-only account sees the counts; the names behind them stay closed.
+  const viewOnly = useViewOnly();
 
   useEffect(() => {
     api.barangays().then(setBarangays).catch(() => setBarangays([]));
@@ -49,7 +52,7 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
           <option value="">All barangays</option>
           {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
         </select>
-        {!officeId && (
+        {!officeId && !viewOnly && (
           <button type="button" className="btn btn--ghost btn--lg" onClick={() => setManaging(true)}>
             <Icon name="sliders" size={16} /> Manage rules
           </button>
@@ -63,17 +66,17 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
         <>
           <GapSection
             title="Not yet served"
-            sub="Citizens who match a program's conditions but have no record in it. Open a list to print it for a barangay and mark who has been contacted."
+            sub={viewOnly ? "Citizens who match a program's conditions but have no record in it, and how many have been contacted so far." : "Citizens who match a program's conditions but have no record in it. Open a list to print it for a barangay and mark who has been contacted."}
             rules={missing}
             empty={officeId ? 'No rules of this kind for your programs.' : 'No active rules of this kind. Add one under Manage rules.'}
-            onOpen={setOpenRule}
+            onOpen={viewOnly ? undefined : setOpenRule}
           />
           <GapSection
             title="Needs cleanup"
             sub="People who are still on a list they should no longer be on. Check these before the next payout or report."
             rules={conflict}
             empty={officeId ? 'No cleanup rules for your programs.' : 'No active cleanup rules.'}
-            onOpen={setOpenRule}
+            onOpen={viewOnly ? undefined : setOpenRule}
           />
         </>
       )}
@@ -85,7 +88,7 @@ export function ProgramGapsPage({ officeId }: { officeId?: string } = {}) {
 }
 
 function GapSection({ title, sub, rules, empty, onOpen }: {
-  title: string; sub: string; rules: GapRuleSummary[]; empty: string; onOpen: (r: GapRuleSummary) => void;
+  title: string; sub: string; rules: GapRuleSummary[]; empty: string; onOpen?: (r: GapRuleSummary) => void;
 }) {
   return (
     <section className="ws-card ws-card--pad ws-stack-y">
@@ -96,7 +99,7 @@ function GapSection({ title, sub, rules, empty, onOpen }: {
       {rules.length === 0 && <p style={{ margin: 0, color: 'var(--t-muted)' }}>{empty}</p>}
       <div>
         {rules.map((r) => (
-          <button key={r.id} type="button" className="ws-gap-row" onClick={() => onOpen(r)} disabled={!r.total}>
+          <button key={r.id} type="button" className="ws-gap-row" onClick={() => onOpen?.(r)} disabled={!r.total || !onOpen} style={onOpen ? undefined : { color: 'inherit' }}>
             {r.targetProgram ? (
               <OfficeMark name={r.targetProgram.office.name} hue={r.targetProgram.office.accentHue} icon={r.targetProgram.office.icon} />
             ) : <span />}
@@ -112,7 +115,7 @@ function GapSection({ title, sub, rules, empty, onOpen }: {
               {!!r.total && <span>{r.total === 1 ? 'person' : 'people'}</span>}
               {!!r.total && r.outreach && <span>{contacted(r.outreach).toLocaleString()} contacted</span>}
             </span>
-            {r.total ? <Icon name="chevR" size={16} /> : <span />}
+            {r.total && onOpen ? <Icon name="chevR" size={16} /> : <span />}
           </button>
         ))}
       </div>
